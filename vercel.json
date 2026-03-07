@@ -1,8 +1,7 @@
 {
-  "version": 2,
-  "builds": [{ "src": "dist/index.cjs", "use": "@vercel/node" }],
-  "routes": [
-    { "src": "/api/(.*)", "dest": "dist/index.cjs" },
-    { "src": "/(.*)", "dest": "dist/index.cjs" }
+  "buildCommand": "npm run build",
+  "framework": null,
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/api/index.js" }
   ]
 }
