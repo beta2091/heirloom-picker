@@ -369,8 +369,8 @@ export default function SiblingPage() {
               <button
                 onClick={() => {
                   if (step.num <= 2 && isSubmitted) return;
-                  if (step.num === 2 && !allRated) return;
-                  if (step.num === 3 && !allRated) return;
+                  
+                  
                   setCurrentStep(step.num);
                 }}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors w-full ${
@@ -380,7 +380,7 @@ export default function SiblingPage() {
                     ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
                     : "bg-muted text-muted-foreground"
                 }`}
-                disabled={(step.num === 2 && !allRated) || (step.num === 3 && !allRated) || (step.num <= 2 && isSubmitted)}
+                disabled={(step.num <= 2 && isSubmitted)}
                 data-testid={`step-button-${step.num}`}
               >
                 {step.done && currentStep !== step.num ? (
@@ -470,7 +470,7 @@ function Step1RateEverything({
       <div className="mb-6">
         <h2 className="font-serif text-2xl font-semibold">Rate Every Item</h2>
         <p className="text-muted-foreground text-sm mt-1">
-          Give each item a star rating from 1 to 5. You must rate all items before moving on.
+          Give each item a star rating from 1 to 5. Skip items you have no interest in — they simply won't appear in your rankings.
         </p>
       </div>
 
@@ -560,7 +560,7 @@ function Step1RateEverything({
       <div className="mt-8 flex justify-end">
         <Button
           onClick={onNext}
-          disabled={!allRated}
+          
           size="lg"
           className="gap-2"
           data-testid="button-next-step-2"
