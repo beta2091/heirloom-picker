@@ -18,7 +18,7 @@ export default function Home() {
 
   const familyName = settings?.familyName || null;
   const contactName = settings?.contactName || "the admin";
-  const heroPhotoSrc = settings?.hasHeroPhoto ? "/api/family-settings/hero-photo" : familyPhotoDefault;
+  const heroPhotoSrc = settings?.hasHeroPhoto ? "/api/family-settings/hero-photo" : null;
 
   if (isLoading) {
     return (
