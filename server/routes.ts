@@ -1250,3 +1250,21 @@ export async function registerRoutes(
 
   return httpServer;
 }
+
+app.delete("/api/ratings/:siblingId/rate/:itemId", async (req, res) => {
+  try {
+    const { siblingId, itemId } = req.params;
+    const { pin } = req.body;
+    const sibling = await storage.getSibling(siblingId);
+    if (!sibling) return res.status(404).json({ error: "Sibling not found" });
+    if (sibling.hasPin) {
+      const verified = await storage.verifySiblingPin(siblingId, pin);
+      if (!verified) return res.status(403).json({ error: "Invalid PIN" });
+    }
+    await storage.deleteRating(siblingId, itemId);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting rating:", error);
+    res.status(500).json({ error: "Failed to delete rating" });
+  }
+});
