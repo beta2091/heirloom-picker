@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Heart, ClipboardList, Star, MessageSquare, RefreshCw, Trophy, ArrowRight, Share2, Info, Loader2 } from "lucide-react";
-import familyPhotoDefault from "@assets/4AA660CD-2DE6-4553-9D2D-CDF5C75C943F_1_105_c_1772759281527.jpeg";
+
 
 interface FamilySettings {
   familyName: string | null;
