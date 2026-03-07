@@ -1,6 +1,5 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
   "builds": [{ "src": "dist/index.cjs", "use": "@vercel/node" }],
   "routes": [
     { "src": "/api/(.*)", "dest": "dist/index.cjs" },
