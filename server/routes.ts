@@ -1247,10 +1247,6 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to reset admin" });
     }
   });
-
-  return httpServer;
-}
-
 app.delete("/api/ratings/:siblingId/rate/:itemId", async (req, res) => {
   try {
     const { siblingId, itemId } = req.params;
@@ -1268,3 +1264,7 @@ app.delete("/api/ratings/:siblingId/rate/:itemId", async (req, res) => {
     res.status(500).json({ error: "Failed to delete rating" });
   }
 });
+
+
+  return httpServer;
+}
