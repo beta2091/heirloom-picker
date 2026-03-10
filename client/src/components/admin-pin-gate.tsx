@@ -30,6 +30,7 @@ export function AdminPinGate({ children, title = "Admin Access", description = "
   const [setupContactName, setSetupContactName] = useState("");
   const [setupHeroPhoto, setSetupHeroPhoto] = useState<string | null>(null);
   const [setupHeroPreview, setSetupHeroPreview] = useState<string | null>(null);
+  const [dragActive, setDragActive] = useState(false);
   const [setupError, setSetupError] = useState("");
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
   const [showRecovery, setShowRecovery] = useState(false);
@@ -62,6 +63,43 @@ export function AdminPinGate({ children, title = "Admin Access", description = "
       setPinError(true);
     } finally {
       setVerifying(false);
+    }
+  };
+
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true);
+    } else if (e.type === "dragleave") {
+      setDragActive(false);
+    }
+  };
+
+  const processFile = (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      setSetupError("Please upload an image file");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setSetupError("Photo must be under 10MB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      setSetupHeroPhoto(dataUrl);
+      setSetupHeroPreview(dataUrl);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      processFile(e.dataTransfer.files[0]);
     }
   };
 
@@ -290,58 +328,84 @@ export function AdminPinGate({ children, title = "Admin Access", description = "
                 <Label className="flex items-center gap-2">
                   <ImagePlus className="w-4 h-4" /> Hero Photo <span className="text-muted-foreground font-normal">(optional)</span>
                 </Label>
-                <div className="flex items-center gap-3">
-                  {setupHeroPreview && (
-                    <div className="w-20 h-14 rounded-lg overflow-hidden border shrink-0">
-                      <img src={setupHeroPreview} alt="Preview" className="w-full h-full object-cover" />
+                <div 
+                  className={`relative border-2 border-dashed rounded-xl transition-all duration-200 ${
+                    dragActive 
+                      ? "border-primary bg-primary/5" 
+                      : setupHeroPreview 
+                        ? "border-muted" 
+                        : "border-muted-foreground/20 hover:border-primary/50 hover:bg-muted/50"
+                  }`}
+                  onDragEnter={handleDrag}
+                  onDragLeave={handleDrag}
+                  onDragOver={handleDrag}
+                  onDrop={handleDrop}
+                >
+                  {setupHeroPreview ? (
+                    <div className="relative group p-2">
+                      <div className="w-full h-40 rounded-lg overflow-hidden bg-muted">
+                        <img src={setupHeroPreview} alt="Preview" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                      </div>
+                      <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/80 to-transparent flex justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                         <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            className="gap-2"
+                            onClick={() => {
+                              const input = document.createElement("input");
+                              input.type = "file";
+                              input.accept = "image/*";
+                              input.onchange = (e) => {
+                                const file = (e.target as HTMLInputElement).files?.[0];
+                                if (file) processFile(file);
+                              };
+                              input.click();
+                            }}
+                            data-testid="button-setup-hero-upload"
+                          >
+                            <Upload className="w-4 h-4" /> Replace
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            className="gap-2"
+                            onClick={() => { setSetupHeroPhoto(null); setSetupHeroPreview(null); }}
+                          >
+                            <Trash2 className="w-4 h-4" /> Remove
+                          </Button>
+                        </div>
+                      </div>
                     </div>
-                  )}
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="gap-1"
-                      onClick={() => {
+                  ) : (
+                    <div className="text-center py-10 px-6 cursor-pointer" onClick={() => {
                         const input = document.createElement("input");
                         input.type = "file";
                         input.accept = "image/*";
                         input.onchange = (e) => {
                           const file = (e.target as HTMLInputElement).files?.[0];
-                          if (!file) return;
-                          if (file.size > 10 * 1024 * 1024) {
-                            setSetupError("Photo must be under 10MB");
-                            return;
-                          }
-                          const reader = new FileReader();
-                          reader.onload = () => {
-                            const dataUrl = reader.result as string;
-                            setSetupHeroPhoto(dataUrl);
-                            setSetupHeroPreview(dataUrl);
-                          };
-                          reader.readAsDataURL(file);
+                          if (file) processFile(file);
                         };
                         input.click();
-                      }}
-                      data-testid="button-setup-hero-upload"
-                    >
-                      <Upload className="w-3 h-3" /> {setupHeroPreview ? "Replace" : "Upload"}
-                    </Button>
-                    {setupHeroPreview && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive gap-1"
-                        onClick={() => { setSetupHeroPhoto(null); setSetupHeroPreview(null); }}
-                      >
-                        <Trash2 className="w-3 h-3" /> Remove
-                      </Button>
-                    )}
-                  </div>
+                      }}>
+                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4 text-primary">
+                        <Upload className="w-6 h-6" />
+                      </div>
+                      <p className="font-medium mb-1">Click to upload or drag and drop</p>
+                      <p className="text-sm text-muted-foreground">PNG, JPG or GIF (max. 10MB)</p>
+                    </div>
+                  )}
+                  {/* Invisible drop overlay when dragging over an existing image */}
+                  {dragActive && setupHeroPreview && (
+                    <div className="absolute inset-0 bg-primary/20 backdrop-blur-sm rounded-xl flex items-center justify-center border-2 border-primary z-10 text-primary font-medium">
+                      Drop to replace image
+                    </div>
+                  )}
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  A family photo for the landing page. You can add or change this later in settings.
+                <p className="text-xs text-muted-foreground pt-1">
+                  A family photo to personalize the landing page. You can change this later in settings.
                 </p>
               </div>
               <div className="border-t pt-4 space-y-3">
