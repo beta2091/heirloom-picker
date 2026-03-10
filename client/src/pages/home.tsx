@@ -76,7 +76,7 @@ export default function Home() {
               <div className="absolute -inset-1 bg-gradient-to-br from-primary/20 via-primary/10 to-transparent rounded-2xl blur-sm" />
               <div className="relative rounded-2xl overflow-hidden shadow-xl border border-primary/10">
                 <img
-                  src={heroPhotoSrc}
+                  src={heroPhotoSrc ?? undefined}
                   alt="Our family"
                   className="w-full h-auto object-cover"
                   data-testid="img-family-hero"

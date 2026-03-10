@@ -310,7 +310,12 @@ export async function registerRoutes(
   app.put("/api/siblings/:id", async (req, res) => {
     try {
       const data = updateSiblingSchema.parse(req.body);
-      const sibling = await storage.updateSibling(req.params.id, data);
+      // Hash the PIN before storing, same as admin PIN
+      const updates = { ...data };
+      if (data.pin !== undefined && data.pin !== null) {
+        updates.pin = hashPin(data.pin);
+      }
+      const sibling = await storage.updateSibling(req.params.id, updates);
       if (!sibling) {
         return res.status(404).json({ error: "Sibling not found" });
       }
@@ -334,7 +339,7 @@ export async function registerRoutes(
       if (!sibling.pin) {
         return res.json({ verified: true, hasPin: false });
       }
-      const verified = sibling.pin === pin;
+      const verified = sibling.pin === hashPin(pin);
       res.json({ verified, hasPin: true });
     } catch (error) {
       res.status(500).json({ error: "Failed to verify PIN" });
@@ -478,7 +483,7 @@ export async function registerRoutes(
       
       if (sibling.pin) {
         const pin = req.query.pin as string;
-        if (!pin || pin !== sibling.pin) {
+        if (!pin || sibling.pin !== hashPin(pin)) {
           return res.status(401).json({ error: "PIN required", requiresPin: true });
         }
       }
@@ -495,7 +500,8 @@ export async function registerRoutes(
     const sibling = await storage.getSibling(siblingId);
     if (!sibling) return false;
     if (!sibling.pin) return true;
-    return sibling.pin === pin;
+    if (!pin) return false;
+    return sibling.pin === hashPin(pin);
   };
 
   // Add to wishlist
@@ -585,7 +591,7 @@ export async function registerRoutes(
       }
       if (sibling.pin) {
         const pin = req.query.pin as string;
-        if (!pin || pin !== sibling.pin) {
+        if (!pin || sibling.pin !== hashPin(pin)) {
           return res.status(401).json({ error: "PIN required", requiresPin: true });
         }
       }
@@ -1032,7 +1038,7 @@ export async function registerRoutes(
 
       if (sibling.pin) {
         const pin = req.query.pin as string;
-        if (pin !== sibling.pin) {
+        if (!pin || sibling.pin !== hashPin(pin)) {
           return res.status(403).json({ error: "Invalid PIN" });
         }
       }
@@ -1054,7 +1060,7 @@ export async function registerRoutes(
 
       if (sibling.pin) {
         const pin = req.query.pin as string;
-        if (pin !== sibling.pin) {
+        if (!pin || sibling.pin !== hashPin(pin)) {
           return res.status(403).json({ error: "Invalid PIN" });
         }
       }
@@ -1247,24 +1253,22 @@ export async function registerRoutes(
       res.status(500).json({ error: "Failed to reset admin" });
     }
   });
-app.delete("/api/ratings/:siblingId/rate/:itemId", async (req, res) => {
-  try {
-    const { siblingId, itemId } = req.params;
-    const { pin } = req.body;
-    const sibling = await storage.getSibling(siblingId);
-    if (!sibling) return res.status(404).json({ error: "Sibling not found" });
-    if (sibling.hasPin) {
-      const verified = await storage.verifySiblingPin(siblingId, pin);
-      if (!verified) return res.status(403).json({ error: "Invalid PIN" });
-    }
-    await storage.deleteRating(siblingId, itemId);
-    res.json({ success: true });
-  } catch (error) {
-    console.error("Error deleting rating:", error);
-    res.status(500).json({ error: "Failed to delete rating" });
-  }
-});
 
+  // Delete a single rating for a sibling/item pair
+  app.delete("/api/ratings/:siblingId/rate/:itemId", async (req, res) => {
+    try {
+      const { siblingId, itemId } = req.params;
+      const { pin } = req.body;
+      if (!(await verifyWishlistAccess(siblingId, pin))) {
+        return res.status(403).json({ error: "PIN required", requiresPin: true });
+      }
+      await storage.deleteRating(siblingId, itemId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting rating:", error);
+      res.status(500).json({ error: "Failed to delete rating" });
+    }
+  });
 
   return httpServer;
 }

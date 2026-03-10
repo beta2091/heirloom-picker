@@ -58,6 +58,7 @@ export interface IStorage {
   getRatingsBySibling(siblingId: string): Promise<ItemRating[]>;
   upsertRating(siblingId: string, itemId: string, rating: number): Promise<ItemRating>;
   updateRankWithinTier(id: string, rankWithinTier: number): Promise<ItemRating | undefined>;
+  deleteRating(siblingId: string, itemId: string): Promise<void>;
   deleteRatingsBySibling(siblingId: string): Promise<void>;
   deleteRatingsByItem(itemId: string): Promise<void>;
 
@@ -274,6 +275,12 @@ export class DatabaseStorage implements IStorage {
       .where(eq(itemRatings.id, id))
       .returning();
     return result[0];
+  }
+
+  async deleteRating(siblingId: string, itemId: string): Promise<void> {
+    await db.delete(itemRatings).where(
+      and(eq(itemRatings.siblingId, siblingId), eq(itemRatings.itemId, itemId))
+    );
   }
 
   async deleteRatingsBySibling(siblingId: string): Promise<void> {
