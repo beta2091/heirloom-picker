@@ -9,8 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Heart, Plus, Camera, Users, Trash2, ArrowLeft, Copy, ExternalLink, Image as ImageIcon, Loader2, Upload, Pencil, Mic, Volume2, X, Lock, Settings, Share, HelpCircle, Shield, KeyRound, UserCog, Home, ImagePlus, User } from "lucide-react";
+import { Heart, Plus, Camera, Users, Trash2, ArrowLeft, Copy, ExternalLink, Image as ImageIcon, Loader2, Upload, Pencil, Mic, Volume2, X, Lock, Settings, Share, HelpCircle, Shield, KeyRound, UserCog, Home, ImagePlus, User, CheckCircle2, Circle } from "lucide-react";
 import { getInitials } from "@/lib/utils-initials";
 import { HelpTooltip } from "@/components/help-tooltip";
 import { AdminPinGate } from "@/components/admin-pin-gate";
@@ -43,6 +44,95 @@ const SIBLING_COLORS = [
   "#ec4899", // pink
   "#84cc16", // lime
 ];
+
+function AdminDashboard({ verifiedPin }: { verifiedPin: string }) {
+  const { data: dashboard, isLoading } = useQuery<{
+    siblings: Array<{ id: string, name: string, color: string, wishlistSubmitted: boolean, draftOrder: number }>,
+    draft: { isActive: boolean, isComplete: boolean, currentRound: number, currentPickIndex: number }
+  }>({
+    queryKey: ["/api/admin/dashboard"],
+    queryFn: async () => {
+      const res = await apiRequest("POST", "/api/admin/dashboard", { pin: verifiedPin });
+      return res.json();
+    }
+  });
+
+  if (isLoading) return <div className="py-12 flex justify-center"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
+  if (!dashboard) return null;
+
+  return (
+    <div className="space-y-8 animate-in fade-in duration-300">
+      <div className="grid md:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-serif text-xl flex items-center gap-2">
+              <Users className="w-5 h-5 text-primary" /> Family Readiness
+            </CardTitle>
+            <CardDescription>Who has locked in their lists?</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {dashboard.siblings.length === 0 ? (
+              <p className="text-muted-foreground text-sm">No family members added yet.</p>
+            ) : (
+              dashboard.siblings.map(s => (
+                <div key={s.id} className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold" style={{ backgroundColor: s.color }}>
+                      {getInitials(s.name)}
+                    </div>
+                    <span className="font-medium">{s.name}</span>
+                  </div>
+                  {s.wishlistSubmitted ? (
+                    <Badge className="bg-green-100 text-green-800 hover:bg-green-100 border-green-200"><CheckCircle2 className="w-3 h-3 mr-1" /> Ready</Badge>
+                  ) : (
+                    <Badge variant="outline" className="text-muted-foreground bg-muted/50"><Circle className="w-3 h-3 mr-1" /> Waiting</Badge>
+                  )}
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-serif text-xl flex items-center gap-2">
+              <Share className="w-5 h-5 text-primary" /> Master Draft
+            </CardTitle>
+            <CardDescription>Run the draft live for everyone to see</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center justify-center py-6 text-center">
+            {dashboard.draft.isComplete ? (
+              <div className="mb-6">
+                <CheckCircle2 className="w-12 h-12 text-primary mx-auto mb-2" />
+                <h3 className="font-semibold text-lg">Draft is Complete!</h3>
+                <p className="text-sm text-muted-foreground mt-1">All items have been distributed.</p>
+              </div>
+            ) : dashboard.draft.isActive ? (
+              <div className="mb-6">
+                <div className="relative inline-flex mb-4">
+                  <div className="absolute inset-0 bg-green-500 rounded-full animate-ping opacity-20"></div>
+                  <Badge className="bg-green-500 hover:bg-green-600 px-3 py-1 text-sm relative z-10">Draft in Progress</Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">Round {dashboard.draft.currentRound}, Pick {dashboard.draft.currentPickIndex + 1}</p>
+              </div>
+            ) : (
+              <div className="mb-6">
+                <Badge variant="secondary" className="px-3 py-1 text-sm mb-4">Not Started</Badge>
+                <p className="text-sm text-muted-foreground">Waiting on everyone to finish their wishlists.</p>
+              </div>
+            )}
+            
+            <Link href="/draft-master">
+              <Button size="lg" className="w-full gap-2">
+                Open Master Draft View <ExternalLink className="w-4 h-4" />
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
 
 function FamilySettings({ verifiedPin }: { verifiedPin: string }) {
   const { toast } = useToast();
@@ -1008,17 +1098,31 @@ export default function Admin() {
           </Link>
         </div>
       </header>
+      
+      <main className="container mx-auto px-4 py-8 max-w-5xl">
+        <Tabs defaultValue="dashboard" className="space-y-8">
+          <div className="flex justify-center border-b pb-1 mb-8 overflow-x-auto">
+            <TabsList className="bg-background border h-auto p-1 max-w-full inline-flex">
+              <TabsTrigger value="dashboard" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary px-4 py-2">Dashboard</TabsTrigger>
+              <TabsTrigger value="family" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary px-4 py-2">Family Members</TabsTrigger>
+              <TabsTrigger value="estate" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary px-4 py-2">Estate Items</TabsTrigger>
+              <TabsTrigger value="settings" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary px-4 py-2">Settings</TabsTrigger>
+            </TabsList>
+          </div>
 
-      <main className="container mx-auto px-4 py-8">
-        <div className="grid lg:grid-cols-2 gap-8">
-          <section>
-            <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
-              <div>
-                <h2 className="font-serif text-2xl font-semibold flex items-center gap-2">
-                  <Users className="w-6 h-6 text-primary" />
-                  Family Members
-                  <HelpTooltip text="Add each sibling who will participate in the draft. They'll take turns picking items. You can set a PIN for privacy and a color for each person." side="right" />
-                </h2>
+          <TabsContent value="dashboard" className="mt-0 outline-none">
+            <AdminDashboard verifiedPin={verifiedPin} />
+          </TabsContent>
+
+          <TabsContent value="family" className="mt-0 outline-none space-y-8 animate-in fade-in duration-300">
+            <section>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="font-serif text-2xl font-semibold flex items-center gap-2">
+                    <Users className="w-6 h-6 text-primary" />
+                    Family Members
+                  </h2>  <HelpTooltip text="Add each sibling who will participate in the draft. They'll take turns picking items. You can set a PIN for privacy and a color for each person." side="right" />
+                </div>
                 <p className="text-muted-foreground text-sm mt-1">
                   Add family members who will participate in the draft
                 </p>
@@ -1062,7 +1166,6 @@ export default function Admin() {
                   </div>
                 </DialogContent>
               </Dialog>
-            </div>
 
             {siblingsLoading ? (
               <Card>
@@ -1160,16 +1263,19 @@ export default function Admin() {
                 </CardContent>
               </Card>
             )}
-          </section>
+            </section>
+          </TabsContent>
 
-          <section>
-            <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
-              <div>
-                <h2 className="font-serif text-2xl font-semibold flex items-center gap-2">
-                  <Camera className="w-6 h-6 text-primary" />
+          <TabsContent value="estate" className="mt-0 outline-none space-y-8 animate-in fade-in duration-300">
+            <section className="pt-2">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+                <div>
+                  <h2 className="font-serif text-2xl font-semibold flex items-center gap-2">
+                    <Camera className="w-6 h-6 text-primary" />
                   Items
+                  </h2>
                   <HelpTooltip text="Add items that will be available in the draft. You can add photos, descriptions, and audio stories. Use Bulk Upload to add many photos at once." side="right" />
-                </h2>
+                </div>
                 <p className="text-muted-foreground text-sm mt-1">
                   Add photos and descriptions of belongings
                 </p>
@@ -1349,7 +1455,6 @@ export default function Admin() {
                   </div>
                 </DialogContent>
               </Dialog>
-              </div>
 
               <Dialog open={bulkUploadDialogOpen} onOpenChange={(open) => { if (!bulkUploading) { setBulkUploadDialogOpen(open); if (!open) setBulkFiles([]); } }}>
                 <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
@@ -1552,11 +1657,14 @@ export default function Admin() {
                 ))}
               </div>
             )}
-          </section>
-        </div>
+            </section>
+          </TabsContent>
 
-        <FamilySettings verifiedPin={verifiedPin} />
-        <AdminSettings verifiedPin={verifiedPin} />
+          <TabsContent value="settings" className="mt-0 outline-none space-y-8 animate-in fade-in duration-300">
+            <FamilySettings verifiedPin={verifiedPin} />
+            <AdminSettings verifiedPin={verifiedPin} />
+          </TabsContent>
+        </Tabs>
       </main>
 
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>

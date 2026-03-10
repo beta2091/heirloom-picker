@@ -8,6 +8,7 @@ import Home from "@/pages/home";
 import Admin from "@/pages/admin";
 import SiblingPage from "@/pages/sibling";
 import Draft from "@/pages/draft";
+import DraftMaster from "@/pages/draft-master";
 import SharePage from "@/pages/share";
 import ViewerPage from "@/pages/viewer";
 import Results from "@/pages/results";
@@ -21,6 +22,7 @@ function Router() {
       <Route path="/admin" component={Admin} />
       <Route path="/sibling/:id" component={SiblingPage} />
       <Route path="/draft" component={Draft} />
+      <Route path="/draft-master" component={DraftMaster} />
       <Route path="/results" component={Results} />
       <Route path="/share/:token" component={SharePage} />
       <Route path="/viewer/:siblingId" component={ViewerPage} />

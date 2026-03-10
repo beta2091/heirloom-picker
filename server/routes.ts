@@ -189,6 +189,44 @@ export async function registerRoutes(
     }
   });
 
+  const adminDashboardSchema = z.object({
+    pin: z.string().length(4).regex(/^\d{4}$/),
+  });
+
+  app.post("/api/admin/dashboard", async (req, res) => {
+    try {
+      const data = adminDashboardSchema.parse(req.body);
+      const settings = await storage.getAppSettings();
+      if (!settings?.adminPin || settings.adminPin !== hashPin(data.pin)) {
+        return res.status(401).json({ error: "Invalid admin PIN" });
+      }
+      
+      const siblings = await storage.getAllSiblings();
+      const draft = await storage.getDraftState();
+      
+      res.json({
+        siblings: siblings.map(s => ({
+          id: s.id,
+          name: s.name,
+          color: s.color,
+          wishlistSubmitted: s.wishlistSubmitted,
+          draftOrder: s.draftOrder,
+        })),
+        draft: {
+          isActive: draft?.isActive || false,
+          isComplete: draft?.isComplete || false,
+          currentRound: draft?.currentRound || 0,
+          currentPickIndex: draft?.currentPickIndex || 0,
+        }
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid input" });
+      }
+      res.status(500).json({ error: "Failed to get dashboard data" });
+    }
+  });
+
   // ============ FAMILY SETTINGS ============
 
   app.get("/api/family-settings", async (req, res) => {
