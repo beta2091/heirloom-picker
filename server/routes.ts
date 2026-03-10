@@ -46,7 +46,7 @@ export async function registerRoutes(
     adminName: z.string().min(1).max(100).optional(),
     familyName: z.string().max(100).optional(),
     contactName: z.string().max(100).optional(),
-    heroPhoto: z.string().max(15 * 1024 * 1024).optional(),
+    heroPhoto: z.string().max(50 * 1024 * 1024).optional(),
   });
 
   app.post("/api/admin/set-pin", async (req, res) => {
