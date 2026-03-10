@@ -15,6 +15,9 @@ import {
 } from "lucide-react";
 import { getInitials } from "@/lib/utils-initials";
 import type { ItemRating } from "@shared/schema";
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface ItemResponse {
   id: string;
@@ -106,8 +109,6 @@ export default function SiblingPage() {
   const [verifying, setVerifying] = useState(false);
   const [verifiedPin, setVerifiedPin] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
-  const [draggedItem, setDraggedItem] = useState<string | null>(null);
-  const [dragOverId, setDragOverId] = useState<string | null>(null);
   const lastInitializedCount = useRef(0);
   // Local optimistic order — mirrors server ratings but updates instantly on drag
   const [localRatings, setLocalRatings] = useState<ItemRating[]>([]);
@@ -202,17 +203,14 @@ export default function SiblingPage() {
     else rateMutation.mutate({ itemId, rating: star });
   };
 
-  const handleDragStart = (ratingId: string) => { if (!sibling?.wishlistSubmitted) setDraggedItem(ratingId); };
-  const handleDragOver = (e: React.DragEvent, ratingId: string) => { e.preventDefault(); if (draggedItem && draggedItem !== ratingId) setDragOverId(ratingId); };
-  const handleDragEnd = () => {
-    if (!draggedItem || !dragOverId || draggedItem === dragOverId) { setDraggedItem(null); setDragOverId(null); return; }
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || sibling?.wishlistSubmitted) return;
     const all = getFullRankedList();
-    const from = all.findIndex(i => i.ratingId === draggedItem);
-    const to = all.findIndex(i => i.ratingId === dragOverId);
-    if (from === -1 || to === -1) { setDraggedItem(null); setDragOverId(null); return; }
-    const reordered = [...all];
-    const [moved] = reordered.splice(from, 1);
-    reordered.splice(to, 0, moved);
+    const fromIndex = all.findIndex(i => i.ratingId === active.id);
+    const toIndex = all.findIndex(i => i.ratingId === over.id);
+    if (fromIndex === -1 || toIndex === -1) return;
+    const reordered = arrayMove(all, fromIndex, toIndex);
     const newOrder = reordered.map((item, idx) => ({ id: item.ratingId, rankWithinTier: idx }));
     // Optimistic update: apply new order to local state immediately (no waiting for server)
     setLocalRatings(prev =>
@@ -221,7 +219,6 @@ export default function SiblingPage() {
         return found ? { ...r, rankWithinTier: found.rankWithinTier } : r;
       })
     );
-    setDraggedItem(null); setDragOverId(null);
     // Fire API call in background
     reorderMutation.mutate(newOrder);
   };
@@ -284,7 +281,7 @@ export default function SiblingPage() {
           ))}
         </div>
         {currentStep === 1 && <Step1RateItems items={availableItems} ratingMap={ratingMap} ratedCount={ratings.length} totalItems={availableItems.length} onRate={handleRate} isSubmitted={isSubmitted} onNext={() => setCurrentStep(2)} />}
-        {currentStep === 2 && <Step2SortAll rankedList={getFullRankedList()} draggedItem={draggedItem} dragOverId={dragOverId} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} isSubmitted={isSubmitted} isInitializing={reorderMutation.isPending && ratings.length !== lastInitializedCount.current} onNext={() => setCurrentStep(3)} onBack={() => setCurrentStep(1)} />}
+        {currentStep === 2 && <Step2SortAll rankedList={getFullRankedList()} onDragEnd={handleDragEnd} isSubmitted={isSubmitted} isInitializing={reorderMutation.isPending && ratings.length !== lastInitializedCount.current} onNext={() => setCurrentStep(3)} onBack={() => setCurrentStep(1)} />}
         {currentStep === 3 && <Step3ReviewSubmit rankedList={getFullRankedList()} isSubmitted={isSubmitted} onSubmit={() => submitWishlistMutation.mutate()} onUnlock={() => unlockWishlistMutation.mutate()} submitting={submitWishlistMutation.isPending} unlocking={unlockWishlistMutation.isPending} onBack={() => setCurrentStep(2)} />}
       </div>
     </div>
@@ -331,7 +328,36 @@ function Step1RateItems({ items, ratingMap, ratedCount, totalItems, onRate, isSu
   );
 }
 
-function Step2SortAll({ rankedList, draggedItem, dragOverId, onDragStart, onDragOver, onDragEnd, isSubmitted, isInitializing, onNext, onBack }: { rankedList: (ItemResponse & { ratingId: string; rating: number; rank: number })[]; draggedItem: string | null; dragOverId: string | null; onDragStart: (id: string) => void; onDragOver: (e: React.DragEvent, id: string) => void; onDragEnd: () => void; isSubmitted: boolean; isInitializing: boolean; onNext: () => void; onBack: () => void; }) {
+function SortableItem({ item, isSubmitted }: { item: ItemResponse & { ratingId: string; rating: number; rank: number }; isSubmitted: boolean; }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.ratingId, disabled: isSubmitted });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.7 : 1, zIndex: isDragging ? 1 : 0, position: 'relative' as const };
+  return (
+    <div ref={setNodeRef} style={style}>
+      <Card className={`transition-shadow ${isDragging ? "shadow-xl border-primary ring-1 ring-primary" : ""}`} data-testid={`sort-item-${item.id}`}>
+        <CardContent className="p-3">
+          <div className="flex items-center gap-3">
+            {!isSubmitted && (
+              <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-2 -ml-2 touch-none">
+                <GripVertical className="w-5 h-5 text-muted-foreground shrink-0" />
+              </div>
+            )}
+            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0"><span className="font-semibold text-primary text-sm">{item.rank}</span></div>
+            <div className="w-12 h-12 rounded-md overflow-hidden shrink-0"><ItemImage item={item} size="sm" /></div>
+            <div className="flex-1 min-w-0"><h3 className="font-medium truncate">{item.name}</h3>{item.description && <p className="text-xs text-muted-foreground truncate">{item.description}</p>}</div>
+            <div className="flex gap-0.5 shrink-0">{Array.from({ length: item.rating }).map((_, i) => <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />)}</div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function Step2SortAll({ rankedList, onDragEnd, isSubmitted, isInitializing, onNext, onBack }: { rankedList: (ItemResponse & { ratingId: string; rating: number; rank: number })[]; onDragEnd: (event: DragEndEvent) => void; isSubmitted: boolean; isInitializing: boolean; onNext: () => void; onBack: () => void; }) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
   if (isInitializing) return <div className="flex items-center justify-center py-24"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
   if (rankedList.length === 0) return (
     <div>
@@ -352,25 +378,16 @@ function Step2SortAll({ rankedList, draggedItem, dragOverId, onDragStart, onDrag
   return (
     <div>
       <div className="mb-6"><h2 className="font-serif text-2xl font-semibold">Sort Your Rankings</h2><p className="text-muted-foreground text-sm mt-1">Drag items into your personal priority order — across tiers if you want. Your #1 pick is what you want most.</p></div>
-      <div className="space-y-1">
-        {renderNodes.map((node) => {
-          if (node.type === "divider") return <TierDivider key={node.key} stars={node.stars} />;
-          const { item } = node;
-          return (
-            <Card key={item.ratingId} className={`transition-all duration-150 ${draggedItem === item.ratingId ? "opacity-50 scale-95" : ""} ${dragOverId === item.ratingId ? "border-primary border-2" : ""}`} draggable={!isSubmitted} onDragStart={() => onDragStart(item.ratingId)} onDragOver={(e) => onDragOver(e, item.ratingId)} onDragEnd={onDragEnd} data-testid={`sort-item-${item.id}`}>
-              <CardContent className="p-3">
-                <div className="flex items-center gap-3">
-                  {!isSubmitted && <GripVertical className="w-5 h-5 text-muted-foreground shrink-0 cursor-grab active:cursor-grabbing" />}
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0"><span className="font-semibold text-primary text-sm">{item.rank}</span></div>
-                  <div className="w-12 h-12 rounded-md overflow-hidden shrink-0"><ItemImage item={item} size="sm" /></div>
-                  <div className="flex-1 min-w-0"><h3 className="font-medium truncate">{item.name}</h3>{item.description && <p className="text-xs text-muted-foreground truncate">{item.description}</p>}</div>
-                  <div className="flex gap-0.5 shrink-0">{Array.from({ length: item.rating }).map((_, i) => <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />)}</div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+        <SortableContext items={rankedList.map(i => i.ratingId)} strategy={verticalListSortingStrategy}>
+          <div className="space-y-1">
+            {renderNodes.map((node) => {
+              if (node.type === "divider") return <TierDivider key={node.key} stars={node.stars} />;
+              return <SortableItem key={node.item.ratingId} item={node.item} isSubmitted={isSubmitted} />;
+            })}
+          </div>
+        </SortableContext>
+      </DndContext>
       <div className="mt-8 flex justify-between">
         <Button variant="outline" onClick={onBack} size="lg" data-testid="button-back-step-1"><ArrowLeft className="w-5 h-5 mr-2" />Back</Button>
         <Button onClick={onNext} size="lg" className="gap-2" data-testid="button-next-step-3">Next: Review & Submit<ChevronRight className="w-5 h-5" /></Button>
