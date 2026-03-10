@@ -72,41 +72,29 @@ export default function Home() {
               </Link>
             </div>
 
-            <div className="mt-12 relative mx-auto max-w-3xl">
-              <div className="absolute -inset-1 bg-gradient-to-br from-primary/20 via-primary/10 to-transparent rounded-2xl blur-sm" />
-              <div className="relative rounded-2xl overflow-hidden shadow-xl border border-primary/10">
-                <img
-                  src={heroPhotoSrc ?? undefined}
-                  alt="Our family"
-                  className="w-full h-auto object-cover"
-                  data-testid="img-family-hero"
-                />
+            <div className="mt-12 relative mx-auto max-w-4xl">
+              <div className="absolute -inset-1 bg-gradient-to-br from-primary/20 via-primary/10 to-transparent rounded-3xl blur-md" />
+              <div className="relative rounded-3xl overflow-hidden shadow-2xl border border-primary/20 bg-card">
+                {heroPhotoSrc ? (
+                  <img
+                    src={heroPhotoSrc}
+                    alt="Our family"
+                    className="w-full h-auto object-cover max-h-[600px]"
+                    data-testid="img-family-hero"
+                  />
+                ) : (
+                  <div className="w-full py-32 flex flex-col items-center justify-center bg-muted/50 text-muted-foreground">
+                    <Heart className="w-16 h-16 mb-4 opacity-50" />
+                    <p>A fair way to share memories</p>
+                  </div>
+                )}
               </div>
-              <p className="mt-4 text-sm text-muted-foreground italic">
-                Keeping what matters most — together
-              </p>
+              {heroPhotoSrc && (
+                <p className="mt-4 text-sm text-muted-foreground font-serif italic text-center">
+                  Keeping what matters most — together
+                </p>
+              )}
             </div>
-          </div>
-        </section>
-
-        <section className="py-12 px-4 bg-card/50">
-          <div className="container mx-auto max-w-2xl">
-            <Card className="border-primary/20 bg-primary/5">
-              <CardContent className="py-6">
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                    <Info className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-serif text-lg font-semibold mb-1" data-testid="text-personal-link-title">Have a personal link?</h3>
-                    <p className="text-muted-foreground text-sm">
-                      Each family member received their own private link by text or email.
-                      Use that link to access your wishlist. If you can't find it, contact {contactName}.
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </section>
 
