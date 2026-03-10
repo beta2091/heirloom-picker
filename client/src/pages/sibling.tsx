@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useParams } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -109,6 +109,8 @@ export default function SiblingPage() {
   const [draggedItem, setDraggedItem] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const lastInitializedCount = useRef(0);
+  // Local optimistic order — mirrors server ratings but updates instantly on drag
+  const [localRatings, setLocalRatings] = useState<ItemRating[]>([]);
 
   const { data: sibling, isLoading: siblingLoading } = useQuery<SiblingResponse>({ queryKey: ["/api/siblings", id] });
   useEffect(() => { if (sibling && !sibling.hasPin) setIsVerified(true); }, [sibling]);
@@ -136,6 +138,11 @@ export default function SiblingPage() {
     enabled: !!id && isVerified,
   });
 
+  // Keep localRatings in sync with server data (but not while dragging)
+  useEffect(() => {
+    if (ratings.length > 0) setLocalRatings(ratings);
+  }, [ratings]);
+
   const availableItems = items.filter(item => !item.pickedBySiblingId);
   const ratingMap = new Map(ratings.map(r => [r.itemId, r]));
 
@@ -149,7 +156,14 @@ export default function SiblingPage() {
   });
   const reorderMutation = useMutation({
     mutationFn: async (data: { id: string; rankWithinTier: number }[]) => apiRequest("PUT", `/api/ratings/${id}/reorder-tier`, { items: data, pin: verifiedPin }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/ratings", id, verifiedPin] }),
+    onError: () => {
+      // On failure, roll back local state to server truth
+      setLocalRatings(ratings);
+    },
+    onSettled: () => {
+      // Always re-sync from server after mutation completes
+      queryClient.invalidateQueries({ queryKey: ["/api/ratings", id, verifiedPin] });
+    },
   });
   const submitWishlistMutation = useMutation({
     mutationFn: async () => apiRequest("POST", `/api/siblings/${id}/submit-wishlist`, { pin: verifiedPin }),
@@ -164,6 +178,8 @@ export default function SiblingPage() {
     if (currentStep === 2 && ratings.length > 0 && !sibling?.wishlistSubmitted && ratings.length !== lastInitializedCount.current) {
       lastInitializedCount.current = ratings.length;
       const sorted = [...ratings].sort((a, b) => b.rating !== a.rating ? b.rating - a.rating : a.rankWithinTier - b.rankWithinTier);
+      // Also update local state immediately so the list renders in the right order
+      setLocalRatings(sorted.map((r, idx) => ({ ...r, rankWithinTier: idx })));
       reorderMutation.mutate(sorted.map((r, idx) => ({ id: r.id, rankWithinTier: idx })));
     }
   }, [currentStep, ratings.length]);
@@ -174,10 +190,10 @@ export default function SiblingPage() {
     toast({ title: "Share link copied to clipboard" });
   };
 
-  const getFullRankedList = () =>
-    [...ratings].sort((a, b) => a.rankWithinTier - b.rankWithinTier)
+  const getFullRankedList = useCallback(() =>
+    [...localRatings].sort((a, b) => a.rankWithinTier - b.rankWithinTier)
       .map((r, idx) => { const item = items.find(i => i.id === r.itemId); return item ? { ...item, ratingId: r.id, rating: r.rating, rank: idx + 1 } : null; })
-      .filter(Boolean) as (ItemResponse & { ratingId: string; rating: number; rank: number })[];
+      .filter(Boolean) as (ItemResponse & { ratingId: string; rating: number; rank: number })[], [localRatings, items]);
 
   const handleRate = (itemId: string, star: number) => {
     if (sibling?.wishlistSubmitted) return;
@@ -197,8 +213,17 @@ export default function SiblingPage() {
     const reordered = [...all];
     const [moved] = reordered.splice(from, 1);
     reordered.splice(to, 0, moved);
-    reorderMutation.mutate(reordered.map((item, idx) => ({ id: item.ratingId, rankWithinTier: idx })));
+    const newOrder = reordered.map((item, idx) => ({ id: item.ratingId, rankWithinTier: idx }));
+    // Optimistic update: apply new order to local state immediately (no waiting for server)
+    setLocalRatings(prev =>
+      prev.map(r => {
+        const found = newOrder.find(o => o.id === r.id);
+        return found ? { ...r, rankWithinTier: found.rankWithinTier } : r;
+      })
+    );
     setDraggedItem(null); setDragOverId(null);
+    // Fire API call in background
+    reorderMutation.mutate(newOrder);
   };
 
   const isLoading = siblingLoading || itemsLoading || ratingsLoading;
