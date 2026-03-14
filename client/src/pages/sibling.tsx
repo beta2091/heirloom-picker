@@ -223,10 +223,11 @@ export default function SiblingPage() {
     reorderMutation.mutate(newOrder);
   };
 
-  const isLoading = siblingLoading || itemsLoading || ratingsLoading;
-  if (isLoading) return <div className="min-h-screen bg-background flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
+  // Only block on sibling loading — don't make PIN screen wait for items
+  if (siblingLoading) return <div className="min-h-screen bg-background flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
   if (!sibling) return <div className="min-h-screen bg-background flex items-center justify-center"><Card><CardContent className="py-12 text-center"><p className="text-muted-foreground">Family member not found</p><Link href="/"><Button variant="ghost" className="mt-4">Go back</Button></Link></CardContent></Card></div>;
 
+  // Show PIN screen as soon as sibling data is ready — no need to wait for items
   if (sibling.hasPin && !isVerified) return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
@@ -236,7 +237,19 @@ export default function SiblingPage() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="pin-input" className="flex items-center gap-2 justify-center"><Lock className="w-4 h-4" /> Private PIN</Label>
-              <Input id="pin-input" type="password" value={pinInput} onChange={(e) => { setPinInput(e.target.value.replace(/\D/g, '').slice(0, 4)); setPinError(false); }} placeholder="Enter 4-digit PIN" maxLength={4} className="text-center text-2xl tracking-widest" onKeyDown={(e) => { if (e.key === 'Enter' && pinInput.length === 4) verifyPin(); }} data-testid="input-pin" />
+              <Input
+                id="pin-input"
+                type="password"
+                inputMode="numeric"
+                autoComplete="off"
+                value={pinInput}
+                onChange={(e) => { setPinInput(e.target.value.replace(/\D/g, '').slice(0, 4)); setPinError(false); }}
+                placeholder="Enter 4-digit PIN"
+                maxLength={4}
+                className="text-center text-2xl tracking-widest"
+                onKeyDown={(e) => { if (e.key === 'Enter' && pinInput.length === 4) verifyPin(); }}
+                data-testid="input-pin"
+              />
               {pinError && <p className="text-destructive text-sm">Incorrect PIN. Please try again.</p>}
             </div>
             <Button onClick={verifyPin} disabled={pinInput.length !== 4 || verifying} className="w-full" data-testid="button-verify-pin">{verifying && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Enter</Button>
@@ -246,6 +259,10 @@ export default function SiblingPage() {
       </Card>
     </div>
   );
+
+  // After PIN verified, wait for items and ratings before showing main content
+  const isLoading = itemsLoading || ratingsLoading;
+  if (isLoading) return <div className="min-h-screen bg-background flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
 
   const isSubmitted = sibling.wishlistSubmitted;
   const steps = [
