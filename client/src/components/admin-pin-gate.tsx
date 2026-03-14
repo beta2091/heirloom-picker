@@ -397,7 +397,6 @@ export function AdminPinGate({ children, title = "Admin Access", description = "
                       <p className="text-sm text-muted-foreground">PNG, JPG or GIF (max. 10MB)</p>
                     </div>
                   )}
-                  {/* Invisible drop overlay when dragging over an existing image */}
                   {dragActive && setupHeroPreview && (
                     <div className="absolute inset-0 bg-primary/20 backdrop-blur-sm rounded-xl flex items-center justify-center border-2 border-primary z-10 text-primary font-medium">
                       Drop to replace image
@@ -419,6 +418,8 @@ export function AdminPinGate({ children, title = "Admin Access", description = "
                     onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
                     placeholder="PIN"
                     maxLength={4}
+                    inputMode="numeric"
+                    autoComplete="off"
                     className="text-center text-xl tracking-widest"
                     data-testid="input-new-admin-pin"
                   />
@@ -427,6 +428,8 @@ export function AdminPinGate({ children, title = "Admin Access", description = "
                     onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
                     placeholder="Confirm"
                     maxLength={4}
+                    inputMode="numeric"
+                    autoComplete="off"
                     className="text-center text-xl tracking-widest"
                     data-testid="input-confirm-admin-pin"
                   />
@@ -473,6 +476,7 @@ export function AdminPinGate({ children, title = "Admin Access", description = "
                   onChange={(e) => setRecoveryInput(e.target.value.toUpperCase())}
                   placeholder="XXXX-XXXX"
                   className="text-center text-lg font-mono tracking-wider"
+                  autoComplete="off"
                   data-testid="input-recovery-code"
                 />
               </div>
@@ -492,6 +496,8 @@ export function AdminPinGate({ children, title = "Admin Access", description = "
                   onChange={(e) => setRecoveryNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
                   placeholder="Enter 4-digit PIN"
                   maxLength={4}
+                  inputMode="numeric"
+                  autoComplete="off"
                   className="text-center text-2xl tracking-widest"
                   data-testid="input-recovery-new-pin"
                 />
@@ -503,6 +509,8 @@ export function AdminPinGate({ children, title = "Admin Access", description = "
                   onChange={(e) => setRecoveryConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
                   placeholder="Confirm PIN"
                   maxLength={4}
+                  inputMode="numeric"
+                  autoComplete="off"
                   className="text-center text-2xl tracking-widest"
                   data-testid="input-recovery-confirm-pin"
                 />
@@ -563,6 +571,8 @@ export function AdminPinGate({ children, title = "Admin Access", description = "
               onKeyDown={(e) => e.key === "Enter" && verifyPin()}
               placeholder="Enter 4-digit PIN"
               maxLength={4}
+              inputMode="numeric"
+              autoComplete="off"
               className={`text-center text-2xl tracking-widest ${pinError ? "border-destructive" : ""}`}
               data-testid="input-admin-pin"
             />
