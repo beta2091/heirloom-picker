@@ -89,12 +89,13 @@ interface OwnerStatus {
 function OwnerDashboard({ password }: { password: string }) {
   const { toast } = useToast();
 
-  const { data: status, isLoading } = useQuery<OwnerStatus>({
+  const { data: status, isLoading, isError } = useQuery<OwnerStatus>({
     queryKey: ["/api/owner/status", password],
     queryFn: async () => {
       const res = await apiRequest("POST", "/api/owner/status", { password });
       return res.json();
     },
+    retry: false,
   });
 
   const resetAdminMutation = useMutation({
@@ -119,25 +120,15 @@ function OwnerDashboard({ password }: { password: string }) {
 
   const [confirmReset, setConfirmReset] = useState(false);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (!status) return null;
-
-  const draftStatusText = status.draft.isComplete
+  const draftStatusText = status?.draft.isComplete
     ? "Complete"
-    : status.draft.isActive
+    : status?.draft.isActive
       ? `Active (Round ${status.draft.currentRound})`
       : "Not Started";
 
-  const draftStatusVariant = status.draft.isComplete
+  const draftStatusVariant = status?.draft.isComplete
     ? "default"
-    : status.draft.isActive
+    : status?.draft.isActive
       ? "secondary"
       : "outline";
 
@@ -152,103 +143,8 @@ function OwnerDashboard({ password }: { password: string }) {
           </div>
         </div>
 
+        {/* Always show the reset card first so it's accessible even if status fails */}
         <div className="space-y-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center gap-2 pb-3">
-              <User className="w-5 h-5 text-muted-foreground" />
-              <CardTitle className="text-base">Admin Status</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <span className="text-sm text-muted-foreground">Admin</span>
-                  <span className="text-sm font-medium" data-testid="text-owner-admin-name">
-                    {status.admin.name || "Not set up"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between flex-wrap gap-2">
-                  <span className="text-sm text-muted-foreground">PIN Status</span>
-                  <Badge variant={status.admin.hasPin ? "default" : "outline"} data-testid="badge-admin-pin-status">
-                    {status.admin.hasPin ? (
-                      <><Lock className="w-3 h-3 mr-1" /> PIN Set</>
-                    ) : (
-                      "No PIN"
-                    )}
-                  </Badge>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center gap-2 pb-3">
-              <Users className="w-5 h-5 text-muted-foreground" />
-              <CardTitle className="text-base">Family Members</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {status.siblings.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No siblings added yet</p>
-              ) : (
-                <div className="space-y-2">
-                  {status.siblings.map((s) => (
-                    <div key={s.id} className="flex items-center justify-between flex-wrap gap-2" data-testid={`row-sibling-${s.id}`}>
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-3 h-3 rounded-full"
-                          style={{ backgroundColor: s.color || "#94a3b8" }}
-                        />
-                        <span className="text-sm">{s.name}</span>
-                      </div>
-                      {s.hasPin && (
-                        <Badge variant="outline" className="text-xs">
-                          <Lock className="w-3 h-3 mr-1" /> PIN
-                        </Badge>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center gap-2 pb-3">
-              <Package className="w-5 h-5 text-muted-foreground" />
-              <CardTitle className="text-base">Items</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <p className="text-2xl font-semibold" data-testid="text-total-items">{status.items.total}</p>
-                  <p className="text-xs text-muted-foreground">Total</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-semibold" data-testid="text-picked-items">{status.items.picked}</p>
-                  <p className="text-xs text-muted-foreground">Picked</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-semibold" data-testid="text-unpicked-items">{status.items.unpicked}</p>
-                  <p className="text-xs text-muted-foreground">Unpicked</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center gap-2 pb-3">
-              <Gavel className="w-5 h-5 text-muted-foreground" />
-              <CardTitle className="text-base">Draft</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <span className="text-sm text-muted-foreground">Status</span>
-                <Badge variant={draftStatusVariant as "default" | "secondary" | "outline"} data-testid="badge-draft-status">
-                  {draftStatusText}
-                </Badge>
-              </div>
-            </CardContent>
-          </Card>
-
           <Card className="border-destructive/30">
             <CardHeader className="flex flex-row items-center gap-2 pb-3">
               <AlertTriangle className="w-5 h-5 text-destructive" />
@@ -256,7 +152,7 @@ function OwnerDashboard({ password }: { password: string }) {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-muted-foreground mb-4">
-                If the admin is locked out and lost their recovery code, you can reset the admin PIN here. The next person to visit the admin page will set up a new PIN and become the admin.
+                Clears the admin PIN so the next person to visit the admin page can set up a new PIN and take over.
               </p>
               {!confirmReset ? (
                 <Button
@@ -290,6 +186,117 @@ function OwnerDashboard({ password }: { password: string }) {
               )}
             </CardContent>
           </Card>
+
+          {isLoading && (
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          )}
+
+          {isError && (
+            <Card>
+              <CardContent className="py-6 text-center text-sm text-muted-foreground">
+                Could not load status — database may be in an inconsistent state. Use the reset above to fix it.
+              </CardContent>
+            </Card>
+          )}
+
+          {status && (
+            <>
+              <Card>
+                <CardHeader className="flex flex-row items-center gap-2 pb-3">
+                  <User className="w-5 h-5 text-muted-foreground" />
+                  <CardTitle className="text-base">Admin Status</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <span className="text-sm text-muted-foreground">Admin</span>
+                      <span className="text-sm font-medium" data-testid="text-owner-admin-name">
+                        {status.admin.name || "Not set up"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <span className="text-sm text-muted-foreground">PIN Status</span>
+                      <Badge variant={status.admin.hasPin ? "default" : "outline"} data-testid="badge-admin-pin-status">
+                        {status.admin.hasPin ? (
+                          <><Lock className="w-3 h-3 mr-1" /> PIN Set</>
+                        ) : (
+                          "No PIN"
+                        )}
+                      </Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center gap-2 pb-3">
+                  <Users className="w-5 h-5 text-muted-foreground" />
+                  <CardTitle className="text-base">Family Members</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {status.siblings.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No siblings added yet</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {status.siblings.map((s) => (
+                        <div key={s.id} className="flex items-center justify-between flex-wrap gap-2" data-testid={`row-sibling-${s.id}`}>
+                          <div className="flex items-center gap-2">
+                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: s.color || "#94a3b8" }} />
+                            <span className="text-sm">{s.name}</span>
+                          </div>
+                          {s.hasPin && (
+                            <Badge variant="outline" className="text-xs">
+                              <Lock className="w-3 h-3 mr-1" /> PIN
+                            </Badge>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center gap-2 pb-3">
+                  <Package className="w-5 h-5 text-muted-foreground" />
+                  <CardTitle className="text-base">Items</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                      <p className="text-2xl font-semibold" data-testid="text-total-items">{status.items.total}</p>
+                      <p className="text-xs text-muted-foreground">Total</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-semibold" data-testid="text-picked-items">{status.items.picked}</p>
+                      <p className="text-xs text-muted-foreground">Picked</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-semibold" data-testid="text-unpicked-items">{status.items.unpicked}</p>
+                      <p className="text-xs text-muted-foreground">Unpicked</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center gap-2 pb-3">
+                  <Gavel className="w-5 h-5 text-muted-foreground" />
+                  <CardTitle className="text-base">Draft</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <span className="text-sm text-muted-foreground">Status</span>
+                    <Badge variant={draftStatusVariant as "default" | "secondary" | "outline"} data-testid="badge-draft-status">
+                      {draftStatusText}
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
         </div>
       </div>
     </div>
