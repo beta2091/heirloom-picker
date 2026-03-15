@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedDatabase } from "./seed";
+import { runMigrations } from "./migrate";
 
 const app = express();
 const httpServer = createServer(app);
@@ -65,6 +66,7 @@ let initialized = false;
 async function initialize() {
   if (initialized) return;
   initialized = true;
+  await runMigrations();
   await registerRoutes(httpServer, app);
   await seedDatabase();
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
