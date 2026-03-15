@@ -4,6 +4,9 @@ import * as schema from "@shared/schema";
 
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
+  ssl: process.env.DATABASE_URL?.includes("railway") || process.env.NODE_ENV === "production"
+    ? { rejectUnauthorized: false }
+    : false,
 });
 
 export const db = drizzle(pool, { schema });
