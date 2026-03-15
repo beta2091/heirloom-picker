@@ -75,13 +75,18 @@ const statements = [
 ];
 
 export async function runMigrations() {
+  let failed = 0;
   for (const statement of statements) {
     try {
       await db.execute(statement);
-    } catch (error) {
-      console.error("[migrate] Statement failed:", error);
-      throw error;
+    } catch (error: any) {
+      console.error("[migrate] Statement failed (non-fatal):", error?.message ?? error);
+      failed++;
     }
   }
-  console.log("[migrate] Database tables ready");
+  if (failed === 0) {
+    console.log("[migrate] All tables ready");
+  } else {
+    console.warn(`[migrate] ${failed} statement(s) failed — app will start anyway`);
+  }
 }
