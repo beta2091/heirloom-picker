@@ -9,8 +9,6 @@ import Admin from "@/pages/admin";
 import SiblingPage from "@/pages/sibling";
 import Draft from "@/pages/draft";
 import DraftMaster from "@/pages/draft-master";
-import SharePage from "@/pages/share";
-import ViewerPage from "@/pages/viewer";
 import Results from "@/pages/results";
 import OwnerPage from "@/pages/owner";
 import LotteryPage from "@/pages/lottery";
@@ -24,8 +22,6 @@ function Router() {
       <Route path="/draft" component={Draft} />
       <Route path="/draft-master" component={DraftMaster} />
       <Route path="/results" component={Results} />
-      <Route path="/share/:token" component={SharePage} />
-      <Route path="/viewer/:siblingId" component={ViewerPage} />
       <Route path="/owner" component={OwnerPage} />
       <Route path="/lottery" component={LotteryPage} />
       <Route component={NotFound} />

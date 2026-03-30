@@ -2,7 +2,7 @@ import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Heart, ClipboardList, Star, MessageSquare, RefreshCw, Trophy, ArrowRight, Share2, Info, Loader2 } from "lucide-react";
+import { Heart, ClipboardList, Star, RefreshCw, Trophy, ArrowRight, Info, Loader2 } from "lucide-react";
 
 
 interface FamilySettings {
@@ -101,7 +101,7 @@ export default function Home() {
         <section className="py-16 px-4">
           <div className="container mx-auto max-w-5xl">
             <h2 className="font-serif text-3xl font-semibold text-center mb-12" data-testid="text-how-it-works">How It Works</h2>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-5">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
               <Card className="h-full" data-testid="step-1">
                 <CardHeader className="pb-3">
                   <div className="w-12 h-12 rounded-md bg-primary/10 flex items-center justify-center mb-2">
@@ -121,11 +121,11 @@ export default function Home() {
                   <div className="w-12 h-12 rounded-md bg-primary/10 flex items-center justify-center mb-2">
                     <Star className="w-6 h-6 text-primary" />
                   </div>
-                  <CardTitle className="font-serif text-base">2. Siblings build their wishlist</CardTitle>
+                  <CardTitle className="font-serif text-base">2. Everyone rates and ranks</CardTitle>
                 </CardHeader>
                 <CardContent className="pt-0">
                   <CardDescription>
-                    Each sibling uses their private link to browse items and mark the ones they want most
+                    Each family member uses their private link to rate items and lock in their priority rankings
                   </CardDescription>
                 </CardContent>
               </Card>
@@ -133,13 +133,13 @@ export default function Home() {
               <Card className="h-full" data-testid="step-3">
                 <CardHeader className="pb-3">
                   <div className="w-12 h-12 rounded-md bg-primary/10 flex items-center justify-center mb-2">
-                    <MessageSquare className="w-6 h-6 text-primary" />
+                    <RefreshCw className="w-6 h-6 text-primary" />
                   </div>
-                  <CardTitle className="font-serif text-base">3. Kids give feedback</CardTitle>
+                  <CardTitle className="font-serif text-base">3. Draft order is set</CardTitle>
                 </CardHeader>
                 <CardContent className="pt-0">
                   <CardDescription>
-                    Siblings share a viewer link with their children, who can suggest items and leave notes
+                    A lottery determines who picks first, second, and so on — fair and random
                   </CardDescription>
                 </CardContent>
               </Card>
@@ -147,49 +147,17 @@ export default function Home() {
               <Card className="h-full" data-testid="step-4">
                 <CardHeader className="pb-3">
                   <div className="w-12 h-12 rounded-md bg-primary/10 flex items-center justify-center mb-2">
-                    <RefreshCw className="w-6 h-6 text-primary" />
-                  </div>
-                  <CardTitle className="font-serif text-base">4. Review and reorder</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <CardDescription>
-                    Siblings adjust their wishlist priority based on their kids' suggestions
-                  </CardDescription>
-                </CardContent>
-              </Card>
-
-              <Card className="h-full" data-testid="step-5">
-                <CardHeader className="pb-3">
-                  <div className="w-12 h-12 rounded-md bg-primary/10 flex items-center justify-center mb-2">
                     <Trophy className="w-6 h-6 text-primary" />
                   </div>
-                  <CardTitle className="font-serif text-base">5. The draft happens</CardTitle>
+                  <CardTitle className="font-serif text-base">4. The draft happens</CardTitle>
                 </CardHeader>
                 <CardContent className="pt-0">
                   <CardDescription>
-                    In pick order, each sibling selects one item at a time until everything is distributed
+                    In pick order, each family member selects one item at a time until everything is distributed
                   </CardDescription>
                 </CardContent>
               </Card>
             </div>
-          </div>
-        </section>
-
-        <section className="py-16 px-4">
-          <div className="container mx-auto max-w-4xl">
-            <Card>
-              <CardHeader className="text-center">
-                <div className="w-16 h-16 rounded-full bg-accent/20 flex items-center justify-center mx-auto mb-4">
-                  <Share2 className="w-8 h-8 text-accent-foreground" />
-                </div>
-                <CardTitle className="font-serif text-2xl" data-testid="text-kids-section-title">For Your Kids & Grandkids</CardTitle>
-                <CardDescription className="text-base max-w-xl mx-auto">
-                  Once you've added items to your wishlist, share a special viewer link with your children.
-                  They can browse everything and tell you which items mean the most to them — helping you
-                  make the best picks for your family.
-                </CardDescription>
-              </CardHeader>
-            </Card>
           </div>
         </section>
       </main>

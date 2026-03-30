@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Star, GripVertical, Loader2, Image as ImageIcon,
-  Share2, Lock, Volume2, ChevronRight, CheckCircle2, Circle,
+  Lock, Volume2, ChevronRight, CheckCircle2, Circle,
   Send, Unlock, X, ZoomIn
 } from "lucide-react";
 import { getInitials } from "@/lib/utils-initials";
@@ -110,7 +110,6 @@ export default function SiblingPage() {
   const [verifiedPin, setVerifiedPin] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
   const lastInitializedCount = useRef(0);
-  // Local optimistic order — mirrors server ratings but updates instantly on drag
   const [localRatings, setLocalRatings] = useState<ItemRating[]>([]);
 
   const { data: sibling, isLoading: siblingLoading } = useQuery<SiblingResponse>({ queryKey: ["/api/siblings", id] });
@@ -139,7 +138,6 @@ export default function SiblingPage() {
     enabled: !!id && isVerified,
   });
 
-  // Keep localRatings in sync with server data (but not while dragging)
   useEffect(() => {
     if (ratings.length > 0) setLocalRatings(ratings);
   }, [ratings]);
@@ -157,14 +155,8 @@ export default function SiblingPage() {
   });
   const reorderMutation = useMutation({
     mutationFn: async (data: { id: string; rankWithinTier: number }[]) => apiRequest("PUT", `/api/ratings/${id}/reorder-tier`, { items: data, pin: verifiedPin }),
-    onError: () => {
-      // On failure, roll back local state to server truth
-      setLocalRatings(ratings);
-    },
-    onSettled: () => {
-      // Always re-sync from server after mutation completes
-      queryClient.invalidateQueries({ queryKey: ["/api/ratings", id, verifiedPin] });
-    },
+    onError: () => { setLocalRatings(ratings); },
+    onSettled: () => { queryClient.invalidateQueries({ queryKey: ["/api/ratings", id, verifiedPin] }); },
   });
   const submitWishlistMutation = useMutation({
     mutationFn: async () => apiRequest("POST", `/api/siblings/${id}/submit-wishlist`, { pin: verifiedPin }),
@@ -179,17 +171,10 @@ export default function SiblingPage() {
     if (currentStep === 2 && ratings.length > 0 && !sibling?.wishlistSubmitted && ratings.length !== lastInitializedCount.current) {
       lastInitializedCount.current = ratings.length;
       const sorted = [...ratings].sort((a, b) => b.rating !== a.rating ? b.rating - a.rating : a.rankWithinTier - b.rankWithinTier);
-      // Also update local state immediately so the list renders in the right order
       setLocalRatings(sorted.map((r, idx) => ({ ...r, rankWithinTier: idx })));
       reorderMutation.mutate(sorted.map((r, idx) => ({ id: r.id, rankWithinTier: idx })));
     }
   }, [currentStep, ratings.length]);
-
-  const copyShareLink = () => {
-    if (!sibling || !id) return;
-    navigator.clipboard.writeText(`${window.location.origin}/viewer/${id}`);
-    toast({ title: "Share link copied to clipboard" });
-  };
 
   const getFullRankedList = useCallback(() =>
     [...localRatings].sort((a, b) => a.rankWithinTier - b.rankWithinTier)
@@ -212,22 +197,18 @@ export default function SiblingPage() {
     if (fromIndex === -1 || toIndex === -1) return;
     const reordered = arrayMove(all, fromIndex, toIndex);
     const newOrder = reordered.map((item, idx) => ({ id: item.ratingId, rankWithinTier: idx }));
-    // Optimistic update: apply new order to local state immediately (no waiting for server)
     setLocalRatings(prev =>
       prev.map(r => {
         const found = newOrder.find(o => o.id === r.id);
         return found ? { ...r, rankWithinTier: found.rankWithinTier } : r;
       })
     );
-    // Fire API call in background
     reorderMutation.mutate(newOrder);
   };
 
-  // Only block on sibling loading — don't make PIN screen wait for items
   if (siblingLoading) return <div className="min-h-screen bg-background flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
   if (!sibling) return <div className="min-h-screen bg-background flex items-center justify-center"><Card><CardContent className="py-12 text-center"><p className="text-muted-foreground">Family member not found</p><Link href="/"><Button variant="ghost" className="mt-4">Go back</Button></Link></CardContent></Card></div>;
 
-  // Show PIN screen as soon as sibling data is ready — no need to wait for items
   if (sibling.hasPin && !isVerified) return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
@@ -260,7 +241,6 @@ export default function SiblingPage() {
     </div>
   );
 
-  // After PIN verified, wait for items and ratings before showing main content
   const isLoading = itemsLoading || ratingsLoading;
   if (isLoading) return <div className="min-h-screen bg-background flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
 
@@ -274,13 +254,10 @@ export default function SiblingPage() {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-3">
-            <Link href="/"><Button variant="ghost" size="icon" data-testid="button-back"><ArrowLeft className="w-5 h-5" /></Button></Link>
-            <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold" style={{ backgroundColor: sibling.color }}>{getInitials(sibling.name)}</div>
-            <div><span className="font-serif text-xl font-semibold">{sibling.name}</span><p className="text-sm text-muted-foreground">Item Rankings</p></div>
-          </div>
-          <Button variant="outline" size="sm" onClick={copyShareLink} className="gap-2" data-testid="button-share"><Share2 className="w-4 h-4" />Share</Button>
+        <div className="container mx-auto px-4 py-4 flex items-center gap-3">
+          <Link href="/"><Button variant="ghost" size="icon" data-testid="button-back"><ArrowLeft className="w-5 h-5" /></Button></Link>
+          <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold" style={{ backgroundColor: sibling.color }}>{getInitials(sibling.name)}</div>
+          <div><span className="font-serif text-xl font-semibold">{sibling.name}</span><p className="text-sm text-muted-foreground">Item Rankings</p></div>
         </div>
       </header>
       <div className="container mx-auto px-4 py-6">
@@ -394,7 +371,7 @@ function Step2SortAll({ rankedList, onDragEnd, isSubmitted, isInitializing, onNe
 
   return (
     <div>
-      <div className="mb-6"><h2 className="font-serif text-2xl font-semibold">Sort Your Rankings</h2><p className="text-muted-foreground text-sm mt-1">Drag items into your personal priority order — across tiers if you want. Your #1 pick is what you want most.</p></div>
+      <div className="mb-6"><h2 className="font-serif text-2xl font-semibold">Sort Your Rankings</h2><p className="text-muted-foreground text-sm mt-1">Drag items into your personal priority order. Your #1 pick is what you want most.</p></div>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={rankedList.map(i => i.ratingId)} strategy={verticalListSortingStrategy}>
           <div className="space-y-1">
