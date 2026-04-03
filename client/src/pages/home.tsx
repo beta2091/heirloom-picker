@@ -1,8 +1,9 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Heart, ClipboardList, Star, RefreshCw, Trophy, ArrowRight, Info, Loader2 } from "lucide-react";
+import { Heart, ClipboardList, Star, RefreshCw, Trophy, ArrowRight, Info, Loader2, User } from "lucide-react";
+import { getInitials } from "@/lib/utils-initials";
 
 
 interface FamilySettings {
@@ -11,9 +12,20 @@ interface FamilySettings {
   hasHeroPhoto: boolean;
 }
 
+interface SiblingResponse {
+  id: string;
+  name: string;
+  shareToken: string;
+  color: string;
+}
+
 export default function Home() {
+  const [, setLocation] = useLocation();
   const { data: settings, isLoading } = useQuery<FamilySettings>({
     queryKey: ["/api/family-settings"],
+  });
+  const { data: siblings = [] } = useQuery<SiblingResponse[]>({
+    queryKey: ["/api/siblings"],
   });
 
   const familyName = settings?.familyName || null;
@@ -65,11 +77,22 @@ export default function Home() {
                 : "A private app to thoughtfully share beloved belongings with your family — so every memory lands with someone who cherishes it."}
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link href="/admin">
-                <Button size="lg" className="gap-2" data-testid="button-get-started">
-                  Get Started <ArrowRight className="w-4 h-4" />
-                </Button>
-              </Link>
+              {siblings.length > 0 ? (
+                <>
+                  <Button size="lg" className="gap-2" data-testid="button-get-started" onClick={() => document.getElementById("family")?.scrollIntoView({ behavior: "smooth" })}>
+                    Tap Your Name Below <ArrowRight className="w-4 h-4" />
+                  </Button>
+                  <Link href="/admin">
+                    <Button size="lg" variant="outline" className="gap-2">Manage</Button>
+                  </Link>
+                </>
+              ) : (
+                <Link href="/admin">
+                  <Button size="lg" className="gap-2" data-testid="button-get-started">
+                    Get Started <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </Link>
+              )}
             </div>
 
             <div className="mt-12 relative mx-auto max-w-4xl">
@@ -97,6 +120,37 @@ export default function Home() {
             </div>
           </div>
         </section>
+
+        {siblings.length > 0 && (
+          <section className="py-12 px-4 bg-muted/30" id="family">
+            <div className="container mx-auto max-w-2xl text-center">
+              <h2 className="font-serif text-2xl font-semibold mb-2">Welcome, family</h2>
+              <p className="text-muted-foreground mb-8">Tap your name to get started</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {siblings.map((sibling) => (
+                  <button
+                    key={sibling.id}
+                    onClick={() => {
+                      sessionStorage.clear();
+                      sessionStorage.setItem(`share-token-${sibling.id}`, sibling.shareToken);
+                      sessionStorage.setItem(`via-link-${sibling.id}`, "true");
+                      setLocation(`/sibling/${sibling.id}`);
+                    }}
+                    className="flex flex-col items-center gap-3 p-5 rounded-xl border bg-card hover:bg-accent/50 hover:border-primary/30 transition-all cursor-pointer shadow-sm hover:shadow-md"
+                  >
+                    <div
+                      className="w-14 h-14 rounded-full flex items-center justify-center text-white font-bold text-lg"
+                      style={{ backgroundColor: sibling.color }}
+                    >
+                      {getInitials(sibling.name)}
+                    </div>
+                    <span className="font-medium text-sm">{sibling.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
 
         <section className="py-16 px-4">
           <div className="container mx-auto max-w-5xl">
