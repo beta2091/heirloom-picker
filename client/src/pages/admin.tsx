@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Heart, Plus, Camera, Users, Trash2, ArrowLeft, ExternalLink, Image as ImageIcon, Loader2, Upload, Pencil, Mic, Volume2, X, Lock, Settings, Share, Shield, KeyRound, UserCog, Home, ImagePlus, User, CheckCircle2, Circle } from "lucide-react";
+import { Heart, Plus, Camera, Users, Trash2, ArrowLeft, ExternalLink, Image as ImageIcon, Loader2, Upload, Pencil, Mic, Volume2, X, Lock, Settings, Share, Shield, KeyRound, UserCog, Home, ImagePlus, User, CheckCircle2, Circle, Link2 } from "lucide-react";
 import { getInitials } from "@/lib/utils-initials";
 import { HelpTooltip } from "@/components/help-tooltip";
 import { AdminPinGate } from "@/components/admin-pin-gate";
@@ -628,6 +628,7 @@ export default function Admin() {
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             {sibling.hasPin && <Badge variant="secondary" className="gap-1"><Lock className="w-3 h-3" /> PIN</Badge>}
+                            <Button variant="ghost" size="icon" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/join/${sibling.shareToken}`); toast({ title: "Link copied!", description: `Share link for ${sibling.name}` }); }} title="Copy share link" data-testid={`button-copy-link-${sibling.id}`}><Link2 className="w-4 h-4" /></Button>
                             <Button variant="ghost" size="icon" onClick={() => openEditSiblingDialog(sibling)} title="Edit settings" data-testid={`button-edit-sibling-${sibling.id}`}><Settings className="w-4 h-4" /></Button>
                             <Link href={`/sibling/${sibling.id}`}><Button variant="ghost" size="icon" title="View wishlist" data-testid={`button-view-wishlist-${sibling.id}`}><ExternalLink className="w-4 h-4" /></Button></Link>
                             <Button variant="ghost" size="icon" onClick={() => deleteSiblingMutation.mutate(sibling.id)} disabled={deleteSiblingMutation.isPending} data-testid={`button-delete-sibling-${sibling.id}`}><Trash2 className="w-4 h-4 text-destructive" /></Button>

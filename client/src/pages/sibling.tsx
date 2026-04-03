@@ -112,8 +112,13 @@ export default function SiblingPage() {
   const lastInitializedCount = useRef(0);
   const [localRatings, setLocalRatings] = useState<ItemRating[]>([]);
 
+  // Share link auth: ?via=link&token=xxx bypasses PIN using shareToken
+  const urlParams = new URLSearchParams(window.location.search);
+  const viaLink = urlParams.get("via") === "link";
+  const shareToken = urlParams.get("token") || null;
+
   const { data: sibling, isLoading: siblingLoading } = useQuery<SiblingResponse>({ queryKey: ["/api/siblings", id] });
-  useEffect(() => { if (sibling && !sibling.hasPin) setIsVerified(true); }, [sibling]);
+  useEffect(() => { if (sibling && (!sibling.hasPin || viaLink)) setIsVerified(true); }, [sibling, viaLink]);
   useEffect(() => { if (sibling?.wishlistSubmitted) setCurrentStep(3); }, [sibling]);
 
   const verifyPin = async () => {
@@ -127,10 +132,14 @@ export default function SiblingPage() {
   };
 
   const { data: items = [], isLoading: itemsLoading } = useQuery<ItemResponse[]>({ queryKey: ["/api/items"] });
+  // Auth params: use shareToken if via link, otherwise PIN
+  const authParam = shareToken ? `shareToken=${shareToken}` : (verifiedPin ? `pin=${verifiedPin}` : "");
+  const authBody = shareToken ? { shareToken } : { pin: verifiedPin };
+
   const { data: ratings = [], isLoading: ratingsLoading } = useQuery<ItemRating[]>({
-    queryKey: ["/api/ratings", id, verifiedPin],
+    queryKey: ["/api/ratings", id, verifiedPin, shareToken],
     queryFn: async () => {
-      const url = verifiedPin ? `/api/ratings/${id}?pin=${verifiedPin}` : `/api/ratings/${id}`;
+      const url = authParam ? `/api/ratings/${id}?${authParam}` : `/api/ratings/${id}`;
       const res = await fetch(url, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch ratings");
       return res.json();
@@ -146,24 +155,24 @@ export default function SiblingPage() {
   const ratingMap = new Map(ratings.map(r => [r.itemId, r]));
 
   const rateMutation = useMutation({
-    mutationFn: async (data: { itemId: string; rating: number }) => apiRequest("PUT", `/api/ratings/${id}/rate`, { ...data, pin: verifiedPin }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/ratings", id, verifiedPin] }),
+    mutationFn: async (data: { itemId: string; rating: number }) => apiRequest("PUT", `/api/ratings/${id}/rate`, { ...data, ...authBody }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/ratings", id, verifiedPin, shareToken] }),
   });
   const unrateMutation = useMutation({
-    mutationFn: async (itemId: string) => apiRequest("DELETE", `/api/ratings/${id}/rate/${itemId}`, { pin: verifiedPin }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/ratings", id, verifiedPin] }),
+    mutationFn: async (itemId: string) => apiRequest("DELETE", `/api/ratings/${id}/rate/${itemId}`, authBody),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/ratings", id, verifiedPin, shareToken] }),
   });
   const reorderMutation = useMutation({
-    mutationFn: async (data: { id: string; rankWithinTier: number }[]) => apiRequest("PUT", `/api/ratings/${id}/reorder-tier`, { items: data, pin: verifiedPin }),
+    mutationFn: async (data: { id: string; rankWithinTier: number }[]) => apiRequest("PUT", `/api/ratings/${id}/reorder-tier`, { items: data, ...authBody }),
     onError: () => { setLocalRatings(ratings); },
-    onSettled: () => { queryClient.invalidateQueries({ queryKey: ["/api/ratings", id, verifiedPin] }); },
+    onSettled: () => { queryClient.invalidateQueries({ queryKey: ["/api/ratings", id, verifiedPin, shareToken] }); },
   });
   const submitWishlistMutation = useMutation({
-    mutationFn: async () => apiRequest("POST", `/api/siblings/${id}/submit-wishlist`, { pin: verifiedPin }),
+    mutationFn: async () => apiRequest("POST", `/api/siblings/${id}/submit-wishlist`, authBody),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/siblings", id] }); toast({ title: "Rankings submitted!", description: "Your picks are locked in." }); },
   });
   const unlockWishlistMutation = useMutation({
-    mutationFn: async () => apiRequest("POST", `/api/siblings/${id}/unlock-wishlist`, { pin: verifiedPin }),
+    mutationFn: async () => apiRequest("POST", `/api/siblings/${id}/unlock-wishlist`, authBody),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/siblings", id] }); setCurrentStep(1); toast({ title: "Rankings unlocked", description: "You can make changes now." }); },
   });
 

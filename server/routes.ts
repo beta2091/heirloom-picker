@@ -534,10 +534,11 @@ export async function registerRoutes(
   });
 
   // Helper to verify PIN for wishlist mutations
-  const verifyWishlistAccess = async (siblingId: string, pin?: string): Promise<boolean> => {
+  const verifyWishlistAccess = async (siblingId: string, pin?: string, shareToken?: string): Promise<boolean> => {
     const sibling = await storage.getSibling(siblingId);
     if (!sibling) return false;
     if (!sibling.pin) return true;
+    if (shareToken && sibling.shareToken === shareToken) return true;
     if (!pin) return false;
     return sibling.pin === hashPin(pin);
   };
@@ -545,12 +546,12 @@ export async function registerRoutes(
   // Add to wishlist
   app.post("/api/wishlist", async (req, res) => {
     try {
-      const { siblingId, itemId, priority, pin } = req.body;
+      const { siblingId, itemId, priority, pin, shareToken } = req.body;
       if (!siblingId || !itemId || priority === undefined) {
         return res.status(400).json({ error: "Missing required fields" });
       }
-      
-      if (!(await verifyWishlistAccess(siblingId, pin))) {
+
+      if (!(await verifyWishlistAccess(siblingId, pin, shareToken))) {
         return res.status(401).json({ error: "PIN required", requiresPin: true });
       }
       
@@ -564,12 +565,12 @@ export async function registerRoutes(
   // Reorder wishlist
   app.put("/api/wishlist/reorder", async (req, res) => {
     try {
-      const { items, siblingId, pin } = req.body;
+      const { items, siblingId, pin, shareToken } = req.body;
       if (!Array.isArray(items)) {
         return res.status(400).json({ error: "Items must be an array" });
       }
-      
-      if (siblingId && !(await verifyWishlistAccess(siblingId, pin))) {
+
+      if (siblingId && !(await verifyWishlistAccess(siblingId, pin, shareToken))) {
         return res.status(401).json({ error: "PIN required", requiresPin: true });
       }
       
@@ -585,9 +586,9 @@ export async function registerRoutes(
   // Update wishlist item (rating/comment)
   app.put("/api/wishlist/:id", async (req, res) => {
     try {
-      const { siblingId, pin, rating, comment } = req.body;
-      
-      if (siblingId && !(await verifyWishlistAccess(siblingId, pin))) {
+      const { siblingId, pin, shareToken, rating, comment } = req.body;
+
+      if (siblingId && !(await verifyWishlistAccess(siblingId, pin, shareToken))) {
         return res.status(401).json({ error: "PIN required", requiresPin: true });
       }
       
@@ -606,9 +607,10 @@ export async function registerRoutes(
   app.delete("/api/wishlist/:id", async (req, res) => {
     try {
       const pin = req.query.pin as string | undefined;
+      const shareToken = req.query.shareToken as string | undefined;
       const siblingId = req.query.siblingId as string | undefined;
-      
-      if (siblingId && !(await verifyWishlistAccess(siblingId, pin))) {
+
+      if (siblingId && !(await verifyWishlistAccess(siblingId, pin, shareToken))) {
         return res.status(401).json({ error: "PIN required", requiresPin: true });
       }
       
@@ -629,7 +631,10 @@ export async function registerRoutes(
       }
       if (sibling.pin) {
         const pin = req.query.pin as string;
-        if (!pin || sibling.pin !== hashPin(pin)) {
+        const shareToken = req.query.shareToken as string;
+        if (shareToken && sibling.shareToken === shareToken) {
+          // Token auth bypasses PIN
+        } else if (!pin || sibling.pin !== hashPin(pin)) {
           return res.status(401).json({ error: "PIN required", requiresPin: true });
         }
       }
@@ -642,11 +647,11 @@ export async function registerRoutes(
 
   app.put("/api/ratings/:siblingId/rate", async (req, res) => {
     try {
-      const { itemId, rating, pin } = req.body;
+      const { itemId, rating, pin, shareToken } = req.body;
       if (!itemId || !rating || rating < 1 || rating > 5) {
         return res.status(400).json({ error: "Valid itemId and rating (1-5) required" });
       }
-      if (!(await verifyWishlistAccess(req.params.siblingId, pin))) {
+      if (!(await verifyWishlistAccess(req.params.siblingId, pin, shareToken))) {
         return res.status(401).json({ error: "PIN required", requiresPin: true });
       }
       const sibling = await storage.getSibling(req.params.siblingId);
@@ -662,11 +667,11 @@ export async function registerRoutes(
 
   app.put("/api/ratings/:siblingId/reorder-tier", async (req, res) => {
     try {
-      const { items, pin } = req.body;
+      const { items, pin, shareToken } = req.body;
       if (!Array.isArray(items)) {
         return res.status(400).json({ error: "Items must be an array" });
       }
-      if (!(await verifyWishlistAccess(req.params.siblingId, pin))) {
+      if (!(await verifyWishlistAccess(req.params.siblingId, pin, shareToken))) {
         return res.status(401).json({ error: "PIN required", requiresPin: true });
       }
       const sibling = await storage.getSibling(req.params.siblingId);
@@ -689,8 +694,8 @@ export async function registerRoutes(
 
   app.post("/api/siblings/:id/submit-wishlist", async (req, res) => {
     try {
-      const { pin } = req.body;
-      if (!(await verifyWishlistAccess(req.params.id, pin))) {
+      const { pin, shareToken } = req.body;
+      if (!(await verifyWishlistAccess(req.params.id, pin, shareToken))) {
         return res.status(401).json({ error: "PIN required", requiresPin: true });
       }
       const allItems = await storage.getAllItems();
@@ -708,8 +713,8 @@ export async function registerRoutes(
 
   app.post("/api/siblings/:id/unlock-wishlist", async (req, res) => {
     try {
-      const { pin } = req.body;
-      if (!(await verifyWishlistAccess(req.params.id, pin))) {
+      const { pin, shareToken } = req.body;
+      if (!(await verifyWishlistAccess(req.params.id, pin, shareToken))) {
         return res.status(401).json({ error: "PIN required", requiresPin: true });
       }
       const updated = await storage.updateSibling(req.params.id, { wishlistSubmitted: false });
@@ -739,11 +744,11 @@ export async function registerRoutes(
 
   app.post("/api/lottery/:siblingId/lock-number", async (req, res) => {
     try {
-      const { number, pin } = req.body;
+      const { number, pin, shareToken } = req.body;
       if (!number || number < 1 || number > 50) {
         return res.status(400).json({ error: "Number must be between 1 and 50" });
       }
-      if (!(await verifyWishlistAccess(req.params.siblingId, pin))) {
+      if (!(await verifyWishlistAccess(req.params.siblingId, pin, shareToken))) {
         return res.status(401).json({ error: "PIN required", requiresPin: true });
       }
       const allSiblings = await storage.getAllSiblings();
@@ -961,7 +966,20 @@ export async function registerRoutes(
   });
 
   // ============ SHARE ============
-  
+
+  // Resolve a share token to a sibling ID (lightweight, for join links)
+  app.get("/api/join/:token", async (req, res) => {
+    try {
+      const sibling = await storage.getSiblingByShareToken(req.params.token);
+      if (!sibling) {
+        return res.status(404).json({ error: "Link not found" });
+      }
+      res.json({ siblingId: sibling.id, name: sibling.name, shareToken: sibling.shareToken });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to resolve link" });
+    }
+  });
+
   // Get share data by token
   app.get("/api/share/:token", async (req, res) => {
     try {
@@ -1296,8 +1314,8 @@ export async function registerRoutes(
   app.delete("/api/ratings/:siblingId/rate/:itemId", async (req, res) => {
     try {
       const { siblingId, itemId } = req.params;
-      const { pin } = req.body;
-      if (!(await verifyWishlistAccess(siblingId, pin))) {
+      const { pin, shareToken } = req.body;
+      if (!(await verifyWishlistAccess(siblingId, pin, shareToken))) {
         return res.status(403).json({ error: "PIN required", requiresPin: true });
       }
       await storage.deleteRating(siblingId, itemId);
