@@ -112,10 +112,9 @@ export default function SiblingPage() {
   const lastInitializedCount = useRef(0);
   const [localRatings, setLocalRatings] = useState<ItemRating[]>([]);
 
-  // Share link auth: ?via=link&token=xxx bypasses PIN using shareToken
-  const urlParams = new URLSearchParams(window.location.search);
-  const viaLink = urlParams.get("via") === "link";
-  const shareToken = urlParams.get("token") || null;
+  // Share link auth: sessionStorage set by /join/:token page bypasses PIN
+  const viaLink = id ? sessionStorage.getItem(`via-link-${id}`) === "true" : false;
+  const shareToken = id ? sessionStorage.getItem(`share-token-${id}`) : null;
 
   const { data: sibling, isLoading: siblingLoading } = useQuery<SiblingResponse>({ queryKey: ["/api/siblings", id] });
   useEffect(() => { if (sibling && (!sibling.hasPin || viaLink)) setIsVerified(true); }, [sibling, viaLink]);

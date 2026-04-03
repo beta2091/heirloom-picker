@@ -28,7 +28,10 @@ export default function JoinPage() {
 
   useEffect(() => {
     if (data) {
-      setLocation(`/sibling/${data.siblingId}?via=link&token=${data.shareToken}`, { replace: true });
+      // Store share token in sessionStorage so it survives client-side routing
+      sessionStorage.setItem(`share-token-${data.siblingId}`, data.shareToken);
+      sessionStorage.setItem(`via-link-${data.siblingId}`, "true");
+      setLocation(`/sibling/${data.siblingId}`, { replace: true });
     }
   }, [data, setLocation]);
 
