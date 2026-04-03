@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Loader2, Heart, AlertCircle } from "lucide-react";
@@ -28,7 +29,24 @@ export default function JoinPage() {
 
   useEffect(() => {
     if (data) {
-      // Store share token in sessionStorage so it survives client-side routing
+      // Clear ALL previous sibling sessions so each link starts fresh.
+      // This prevents seeing another sibling's cached data if someone
+      // previously opened a different link in the same browser.
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i);
+        if (key && (key.startsWith("share-token-") || key.startsWith("via-link-"))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(k => sessionStorage.removeItem(k));
+
+      // Clear React Query cache for sibling/ratings data from any previous session
+      queryClient.removeQueries({ queryKey: ["/api/siblings"] });
+      queryClient.removeQueries({ queryKey: ["/api/ratings"] });
+      queryClient.removeQueries({ queryKey: ["/api/items"] });
+
+      // Set fresh session for this sibling
       sessionStorage.setItem(`share-token-${data.siblingId}`, data.shareToken);
       sessionStorage.setItem(`via-link-${data.siblingId}`, "true");
       setLocation(`/sibling/${data.siblingId}`, { replace: true });
