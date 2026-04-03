@@ -1,6 +1,6 @@
 import { build as esbuild } from "esbuild";
 import { build as viteBuild } from "vite";
-import { rm, readFile } from "fs/promises";
+import { rm, readFile, cp } from "fs/promises";
 
 // server deps to bundle to reduce openat(2) syscalls
 // which helps cold start times
@@ -59,6 +59,15 @@ async function buildAll() {
     external: externals,
     logLevel: "info",
   });
+
+  // Copy built static files to project root for Vercel static serving
+  // Vercel serves files from the project root as static assets, so
+  // dist/public/index.html and dist/public/assets/* need to be at
+  // ./index.html and ./assets/* for the rewrites to find them
+  console.log("copying static assets for Vercel...");
+  await cp("dist/public/index.html", "index.html");
+  await cp("dist/public/assets", "assets", { recursive: true });
+  await cp("dist/public/favicon.png", "favicon.png", { force: true }).catch(() => {});
 }
 
 buildAll().catch((err) => {

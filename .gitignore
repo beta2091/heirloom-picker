@@ -5,3 +5,7 @@ node_modules
 .env.local
 .vercel
 .env*.local
+
+# Build outputs copied to root for Vercel static serving
+/index.html
+/assets/
