@@ -1197,38 +1197,46 @@ export async function registerRoutes(
         return res.status(401).json({ error: "Not your turn or invalid auth" });
       }
 
-      // Update the item
+      // Pre-check: item exists
       const item = await storage.getItem(itemId);
       if (!item) {
         return res.status(404).json({ error: "Item not found" });
       }
-      if (item.pickedBySiblingId) {
-        return res.status(400).json({ error: "Item already picked" });
-      }
 
-      await storage.updateItem(itemId, {
-        pickedBySiblingId: currentPicker.id,
-        pickRound: draftState.currentRound,
-      });
-
-      // Advance to next pick
+      // Pre-compute what the next state should look like
       const nextPickIndex = draftState.currentPickIndex + 1;
       const nextRound = Math.floor(nextPickIndex / sortedSiblings.length) + 1;
-
-      // Check if draft is complete
       const allItems = await storage.getAllItems();
       const unpickedItems = allItems.filter(i => !i.pickedBySiblingId && i.id !== itemId);
       const isComplete = unpickedItems.length === 0;
 
-      await storage.createOrUpdateDraftState({
-        currentPickIndex: nextPickIndex,
-        currentRound: nextRound,
+      // Atomic: claim the item and advance the draft in one transaction,
+      // gated on the currentPickIndex NOT having moved since we read it.
+      // This blocks the race where two concurrent /pick requests both pass
+      // auth, both claim different items, but only one pickIndex++ wins and
+      // the next sibling's turn gets skipped.
+      const result = await storage.atomicPick({
+        itemId,
+        siblingId: currentPicker.id,
+        expectedPickIndex: draftState.currentPickIndex,
+        pickRound: draftState.currentRound,
+        nextPickIndex,
+        nextRound,
         isComplete,
         isActive: !isComplete,
       });
 
-      const newState = await storage.getDraftState();
-      res.json(newState);
+      if (!result.ok) {
+        if (result.reason === "already_picked") {
+          return res.status(409).json({ error: "Item was already picked. Refresh and try again." });
+        }
+        if (result.reason === "race") {
+          return res.status(409).json({ error: "Someone else just picked. Refresh and try again." });
+        }
+        return res.status(400).json({ error: "Draft is not active" });
+      }
+
+      res.json(result.state);
     } catch (error) {
       res.status(500).json({ error: "Failed to make pick" });
     }

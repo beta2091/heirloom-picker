@@ -11,7 +11,7 @@ import {
   users, siblings, items, wishlistItems, draftState, familyMembers, familySuggestions, itemRatings, appSettings
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
@@ -66,6 +66,21 @@ export interface IStorage {
   getDraftState(): Promise<DraftState | undefined>;
   createOrUpdateDraftState(state: Partial<DraftState>): Promise<DraftState>;
   resetDraft(): Promise<void>;
+  // Atomically record a pick: checks that the draft is still on
+  // `expectedPickIndex` and the item is still unpicked, then flips both in one
+  // transaction. Returns the new draft state, or an error code describing why
+  // it didn't happen. Prevents two concurrent picks from colliding on the
+  // same slot.
+  atomicPick(args: {
+    itemId: string;
+    siblingId: string;
+    expectedPickIndex: number;
+    pickRound: number;
+    nextPickIndex: number;
+    nextRound: number;
+    isComplete: boolean;
+    isActive: boolean;
+  }): Promise<{ ok: true; state: DraftState } | { ok: false; reason: "race" | "already_picked" | "not_active" }>;
 
   // App Settings
   getAppSettings(): Promise<AppSettings | undefined>;
@@ -311,6 +326,57 @@ export class DatabaseStorage implements IStorage {
       }).returning();
       return result[0];
     }
+  }
+
+  async atomicPick(args: {
+    itemId: string;
+    siblingId: string;
+    expectedPickIndex: number;
+    pickRound: number;
+    nextPickIndex: number;
+    nextRound: number;
+    isComplete: boolean;
+    isActive: boolean;
+  }): Promise<{ ok: true; state: DraftState } | { ok: false; reason: "race" | "already_picked" | "not_active" }> {
+    // Transaction: lock the draft-state row, verify state, then flip both
+    // rows. If any guard fails, the transaction rolls back.
+    return await db.transaction(async (tx) => {
+      const stateRows = await tx.select().from(draftState);
+      const state = stateRows[0];
+      if (!state || !state.isActive) {
+        return { ok: false as const, reason: "not_active" as const };
+      }
+      if (state.currentPickIndex !== args.expectedPickIndex) {
+        // Someone else already advanced the draft
+        return { ok: false as const, reason: "race" as const };
+      }
+
+      // Claim the item only if it's still unpicked. The WHERE clause makes
+      // this atomic — no need for a separate SELECT.
+      const claimed = await tx
+        .update(items)
+        .set({ pickedBySiblingId: args.siblingId, pickRound: args.pickRound })
+        .where(and(eq(items.id, args.itemId), isNull(items.pickedBySiblingId)))
+        .returning();
+
+      if (claimed.length === 0) {
+        // Item was already picked by someone else (or doesn't exist)
+        return { ok: false as const, reason: "already_picked" as const };
+      }
+
+      const newState = await tx
+        .update(draftState)
+        .set({
+          currentPickIndex: args.nextPickIndex,
+          currentRound: args.nextRound,
+          isActive: args.isActive,
+          isComplete: args.isComplete,
+        })
+        .where(eq(draftState.id, state.id))
+        .returning();
+
+      return { ok: true as const, state: newState[0] };
+    });
   }
 
   async resetDraft(): Promise<void> {
