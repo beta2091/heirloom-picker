@@ -104,13 +104,24 @@ export async function registerRoutes(
 
   app.post("/api/admin/set-pin", async (req, res) => {
     try {
+      // Rate limit: protects both the first-setup race (attacker claiming
+      // admin before the owner does) and wrong-currentPin brute forcing.
+      const key = `admin-set-pin:${ipOf(req)}`;
+      const blockedFor = rateLimit(key, 5, 60 * 60 * 1000, 60 * 60 * 1000);
+      if (blockedFor !== null) {
+        return res.status(429).json({
+          error: `Too many attempts. Try again in ${Math.ceil(blockedFor / 60)} minute(s).`,
+          retryAfter: blockedFor,
+        });
+      }
       const data = adminPinSchema.parse(req.body);
       const settings = await storage.getAppSettings();
       const isFirstSetup = !settings?.adminPin;
-      
+
       if (settings?.adminPin && (!data.currentPin || settings.adminPin !== hashPin(data.currentPin))) {
         return res.status(403).json({ error: "Current PIN is incorrect" });
       }
+      rateLimitClear(key);
 
       if (data.heroPhoto && data.heroPhoto.length > 0 && !data.heroPhoto.startsWith("data:image/")) {
         return res.status(400).json({ error: "Invalid image format" });
@@ -1542,6 +1553,12 @@ export async function registerRoutes(
       console.error("Error deleting rating:", error);
       res.status(500).json({ error: "Failed to delete rating" });
     }
+  });
+
+  // Catch-all: unknown /api/* paths return JSON 404 instead of falling
+  // through to the SPA HTML. Must be registered AFTER all real /api routes.
+  app.use("/api", (_req, res) => {
+    res.status(404).json({ error: "Not found" });
   });
 
   return httpServer;
