@@ -543,6 +543,50 @@ export default function Admin() {
     return fileName.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ").split(" ").map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join(" ");
   };
 
+  type UploadFailureCategory = "auth" | "tooLarge" | "server" | "network" | "other";
+  type UploadFailure = { name: string; category: UploadFailureCategory; message: string };
+
+  const categorizeUploadError = (err: unknown): { category: UploadFailureCategory; message: string } => {
+    const message = err instanceof Error ? err.message : String(err);
+    const match = /^(\d{3}):/.exec(message);
+    if (match) {
+      const status = Number(match[1]);
+      if (status === 401 || status === 403) return { category: "auth", message };
+      if (status === 413) return { category: "tooLarge", message };
+      if (status >= 500) return { category: "server", message };
+      return { category: "other", message };
+    }
+    if (err instanceof TypeError) return { category: "network", message };
+    return { category: "other", message };
+  };
+
+  const uploadItem = async (name: string, preview: string): Promise<UploadFailure | null> => {
+    try {
+      await apiRequest("POST", "/api/items", { name, imageUrl: preview, adminPin });
+      return null;
+    } catch (err) {
+      const { category, message } = categorizeUploadError(err);
+      console.error(`Bulk upload failed for "${name}":`, message);
+      return { name, category, message };
+    }
+  };
+
+  const buildFailureDescription = (failures: UploadFailure[], processingFailures = 0): string | undefined => {
+    if (failures.length === 0 && processingFailures === 0) return undefined;
+    const counts = failures.reduce<Record<UploadFailureCategory, number>>(
+      (acc, f) => { acc[f.category] = (acc[f.category] || 0) + 1; return acc; },
+      { auth: 0, tooLarge: 0, server: 0, network: 0, other: 0 },
+    );
+    if (counts.auth > 0) return "Admin session expired — refresh and try again.";
+    const parts: string[] = [];
+    if (processingFailures > 0) parts.push(`${processingFailures} couldn't be processed`);
+    if (counts.tooLarge > 0) parts.push(`${counts.tooLarge} image${counts.tooLarge > 1 ? "s" : ""} too large (try fewer/smaller photos)`);
+    if (counts.server > 0) parts.push(`${counts.server} server error${counts.server > 1 ? "s" : ""} (try again)`);
+    if (counts.network > 0) parts.push(`${counts.network} network error${counts.network > 1 ? "s" : ""} (check connection)`);
+    if (counts.other > 0) parts.push(`${counts.other} failed`);
+    return parts.join("; ");
+  };
+
   const handleBulkFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
@@ -559,24 +603,17 @@ export default function Admin() {
       }
       const uploadTotal = pendingUploads.length;
       const processingFailures = files.length - uploadTotal;
+      const uploadFailures: UploadFailure[] = [];
       setBulkProgress(prev => ({ ...prev, total: uploadTotal, uploaded: 0, phase: "uploading" }));
       for (let i = 0; i < uploadTotal; i += 5) {
-        const results = await Promise.allSettled(pendingUploads.slice(i, i + 5).map(({ name, preview }) => apiRequest("POST", "/api/items", { name, imageUrl: preview, adminPin })));
-        for (const result of results) { if (result.status === "fulfilled") successCount++; }
+        const results = await Promise.all(pendingUploads.slice(i, i + 5).map(({ name, preview }) => uploadItem(name, preview)));
+        for (const result of results) { if (result === null) successCount++; else uploadFailures.push(result); }
         setBulkProgress(prev => ({ ...prev, uploaded: Math.min(i + 5, uploadTotal) }));
       }
       queryClient.invalidateQueries({ queryKey: ["/api/items"] });
       setBulkUploading(false); setBulkUploadDialogOpen(false); setBulkFiles([]); setBulkProgress({ processed: 0, uploaded: 0, total: 0, phase: "" });
-      const totalFailures = files.length - successCount;
-      let description: string | undefined;
-      if (totalFailures > 0) {
-        const parts: string[] = [];
-        if (processingFailures > 0) parts.push(`${processingFailures} couldn't be processed`);
-        const uploadFailures = uploadTotal - successCount;
-        if (uploadFailures > 0) parts.push(`${uploadFailures} failed to upload`);
-        description = parts.join(", ");
-      }
-      toast({ title: `${successCount} items added`, description });
+      const description = buildFailureDescription(uploadFailures, processingFailures);
+      toast({ title: `${successCount} of ${files.length} added`, description });
     } else {
       const processedFiles: Array<{ file: File; name: string; preview: string }> = [];
       for (const file of files) {
@@ -591,14 +628,17 @@ export default function Admin() {
     if (bulkFiles.length === 0) return;
     setBulkUploading(true); setBulkProgress({ processed: bulkFiles.length, uploaded: 0, total: bulkFiles.length, phase: "uploading" });
     let successCount = 0;
-    for (let i = 0; i < bulkFiles.length; i += 5) {
-      const results = await Promise.allSettled(bulkFiles.slice(i, i + 5).map(({ name, preview }) => apiRequest("POST", "/api/items", { name, imageUrl: preview, adminPin })));
-      for (const result of results) { if (result.status === "fulfilled") successCount++; }
-      setBulkProgress(prev => ({ ...prev, uploaded: Math.min(i + 5, bulkFiles.length) }));
+    const uploadFailures: UploadFailure[] = [];
+    const total = bulkFiles.length;
+    for (let i = 0; i < total; i += 5) {
+      const results = await Promise.all(bulkFiles.slice(i, i + 5).map(({ name, preview }) => uploadItem(name, preview)));
+      for (const result of results) { if (result === null) successCount++; else uploadFailures.push(result); }
+      setBulkProgress(prev => ({ ...prev, uploaded: Math.min(i + 5, total) }));
     }
     queryClient.invalidateQueries({ queryKey: ["/api/items"] });
     setBulkUploading(false); setBulkUploadDialogOpen(false); setBulkFiles([]); setBulkProgress({ processed: 0, uploaded: 0, total: 0, phase: "" });
-    toast({ title: `${successCount} items added`, description: successCount < bulkFiles.length ? `${bulkFiles.length - successCount} items failed to upload` : undefined });
+    const description = buildFailureDescription(uploadFailures);
+    toast({ title: `${successCount} of ${total} added`, description });
   };
 
   const updateBulkFileName = (index: number, newName: string) => setBulkFiles(files => files.map((f, i) => i === index ? { ...f, name: newName } : f));
