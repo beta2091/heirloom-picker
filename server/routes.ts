@@ -1346,12 +1346,20 @@ export async function registerRoutes(
     }
   });
 
-  // Delete a suggestion (sibling lead can remove, or the family member who made it)
+  // Delete a suggestion. The share token must match a sibling AND the
+  // suggestion must belong to that sibling — otherwise any share-link
+  // recipient could delete any other sibling's suggestions by guessing
+  // suggestion IDs.
   app.delete("/api/share/:token/suggestions/:id", async (req, res) => {
     try {
       const sibling = await storage.getSiblingByShareToken(req.params.token);
       if (!sibling) {
         return res.status(404).json({ error: "Share link not found" });
+      }
+
+      const suggestions = await storage.getSuggestionsBySibling(sibling.id);
+      if (!suggestions.some(s => s.id === req.params.id)) {
+        return res.status(404).json({ error: "Suggestion not found for this sibling" });
       }
 
       await storage.deleteFamilySuggestion(req.params.id);
