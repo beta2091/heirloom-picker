@@ -11,8 +11,9 @@ import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Star, GripVertical, Loader2, Image as ImageIcon,
   Lock, Volume2, ChevronRight, CheckCircle2, Circle,
-  Send, Unlock, X, ZoomIn
+  Send, Unlock, X, ZoomIn, Trophy, Clock, Sparkles
 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getInitials } from "@/lib/utils-initials";
 import type { ItemRating } from "@shared/schema";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
@@ -37,6 +38,17 @@ interface SiblingResponse {
   color: string;
   hasPin: boolean;
   wishlistSubmitted: boolean;
+}
+
+interface DraftStateResponse {
+  isActive: boolean;
+  isComplete: boolean;
+  currentRound: number;
+  currentPickIndex: number;
+  currentPickerId: string | null;
+  currentPickerName: string | null;
+  currentPickerColor: string | null;
+  totalSiblings: number;
 }
 
 function Lightbox({ src, name, onClose }: { src: string; name: string; onClose: () => void }) {
@@ -175,6 +187,28 @@ export default function SiblingPage() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/siblings", id] }); setCurrentStep(1); toast({ title: "Rankings unlocked", description: "You can make changes now." }); },
   });
 
+  // Draft state — poll every 5s so the sibling sees when it becomes their turn
+  // without needing to refresh the page.
+  const { data: draftState } = useQuery<DraftStateResponse>({
+    queryKey: ["/api/draft"],
+    refetchInterval: 5000,
+    enabled: isVerified,
+  });
+
+  const [pickingItem, setPickingItem] = useState<ItemResponse | null>(null);
+  const makePickMutation = useMutation({
+    mutationFn: async (itemId: string) => apiRequest("POST", "/api/draft/pick", { itemId, shareToken }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/draft"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/items"] });
+      toast({ title: `You picked ${pickingItem?.name ?? "it"}!`, description: "Passing the turn to the next person." });
+      setPickingItem(null);
+    },
+    onError: (err: any) => {
+      toast({ title: "Couldn't make pick", description: err?.message || "Try again in a moment.", variant: "destructive" });
+    },
+  });
+
   useEffect(() => {
     if (currentStep === 2 && ratings.length > 0 && !sibling?.wishlistSubmitted && ratings.length !== lastInitializedCount.current) {
       lastInitializedCount.current = ratings.length;
@@ -251,6 +285,164 @@ export default function SiblingPage() {
 
   const isLoading = itemsLoading || ratingsLoading;
   if (isLoading) return <div className="min-h-screen bg-background flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
+
+  // DRAFT MODE — when the draft is active or complete, the sibling sees a
+  // draft-focused view instead of the ranking UI. Rankings become read-only
+  // context for "your top pick" suggestions during live drafting.
+  if (draftState?.isActive || draftState?.isComplete) {
+    const isMyTurn = draftState.currentPickerId === id;
+    const unpickedItems = items.filter(i => !i.pickedBySiblingId);
+    const pickedItems = items.filter(i => i.pickedBySiblingId);
+    const myItems = pickedItems.filter(i => i.pickedBySiblingId === id).sort((a, b) => (a.pickRound || 0) - (b.pickRound || 0));
+
+    // Order the remaining items by this sibling's own ranking (best first),
+    // then append any they never ranked.
+    const myRankingOrder = new Map<string, number>();
+    [...localRatings].sort((a, b) => a.rankWithinTier - b.rankWithinTier).forEach((r, idx) => myRankingOrder.set(r.itemId, idx));
+    const sortedUnpicked = [...unpickedItems].sort((a, b) => {
+      const ra = myRankingOrder.has(a.id) ? myRankingOrder.get(a.id)! : 9999;
+      const rb = myRankingOrder.has(b.id) ? myRankingOrder.get(b.id)! : 9999;
+      return ra - rb;
+    });
+    const suggestedPickId = sortedUnpicked[0]?.id;
+
+    return (
+      <div className="min-h-screen bg-background">
+        <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
+          <div className="container mx-auto px-4 py-4 flex items-center gap-3">
+            <Link href="/"><Button variant="ghost" size="icon"><ArrowLeft className="w-5 h-5" /></Button></Link>
+            <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold" style={{ backgroundColor: sibling.color }}>{getInitials(sibling.name)}</div>
+            <div>
+              <span className="font-serif text-xl font-semibold">{sibling.name}</span>
+              <p className="text-sm text-muted-foreground">
+                {draftState.isComplete ? "Draft complete" : `Round ${draftState.currentRound}, Pick #${draftState.currentPickIndex + 1}`}
+              </p>
+            </div>
+          </div>
+        </header>
+
+        <main className="container mx-auto px-4 py-6 max-w-4xl space-y-6">
+          {draftState.isComplete ? (
+            <Card className="border-2 border-accent">
+              <CardContent className="py-8 text-center space-y-3">
+                <Trophy className="w-12 h-12 mx-auto text-accent-foreground" />
+                <h2 className="font-serif text-3xl font-bold">The draft is complete!</h2>
+                <p className="text-muted-foreground">Here's everything you picked:</p>
+              </CardContent>
+            </Card>
+          ) : isMyTurn ? (
+            <Card className="border-2 shadow-md animate-in fade-in slide-in-from-top-4" style={{ borderColor: sibling.color }}>
+              <CardContent className="py-8 text-center space-y-3">
+                <Badge variant="outline" className="text-xs font-semibold tracking-wider uppercase bg-background shadow-sm">
+                  <Sparkles className="w-3 h-3 mr-1" /> Your Turn
+                </Badge>
+                <h2 className="font-serif text-3xl md:text-4xl font-bold">You're on the clock, {sibling.name.split(" ")[0]}!</h2>
+                <p className="text-muted-foreground max-w-md mx-auto">
+                  Pick any item below. Your highest-ranked available item is highlighted, but you can choose whatever you want.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="py-6 space-y-3">
+                <div className="flex items-center gap-3">
+                  <Clock className="w-6 h-6 text-muted-foreground" />
+                  <div>
+                    <h2 className="font-serif text-xl font-semibold">Waiting for your turn</h2>
+                    <p className="text-sm text-muted-foreground">
+                      {draftState.currentPickerName ? (
+                        <><span className="font-semibold" style={{ color: draftState.currentPickerColor || undefined }}>{draftState.currentPickerName}</span> is picking now.</>
+                      ) : "Draft is starting..."}
+                    </p>
+                  </div>
+                </div>
+                {sibling.draftOrder > 0 && (
+                  <p className="text-xs text-muted-foreground">You're pick #{sibling.draftOrder} in the order. This page will update automatically when it's your turn.</p>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {!draftState.isComplete && sortedUnpicked.length > 0 && (
+            <div>
+              <h3 className="font-serif text-lg font-semibold mb-3">{isMyTurn ? "Available to pick" : "Still available"}</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {sortedUnpicked.map((item) => {
+                  const isSuggested = isMyTurn && item.id === suggestedPickId;
+                  return (
+                    <Card
+                      key={item.id}
+                      className={`overflow-hidden transition-all ${isMyTurn ? "cursor-pointer hover:shadow-lg hover:-translate-y-0.5" : "opacity-80"} ${isSuggested ? "ring-2 ring-primary shadow-md" : ""}`}
+                      onClick={() => { if (isMyTurn) setPickingItem(item); }}
+                      data-testid={`available-item-${item.id}`}
+                    >
+                      <div className="aspect-square bg-muted relative">
+                        <ItemImage item={item} size="lg" />
+                        {isSuggested && (
+                          <Badge className="absolute top-2 left-2">
+                            <Sparkles className="w-3 h-3 mr-1" /> Top pick
+                          </Badge>
+                        )}
+                      </div>
+                      <CardContent className="p-3">
+                        <h4 className="font-medium text-sm truncate">{item.name}</h4>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {myItems.length > 0 && (
+            <div>
+              <h3 className="font-serif text-lg font-semibold mb-3">Your picks so far ({myItems.length})</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {myItems.map((item) => (
+                  <Card key={item.id} className="overflow-hidden" data-testid={`my-item-${item.id}`}>
+                    <div className="aspect-square bg-muted"><ItemImage item={item} size="lg" /></div>
+                    <CardContent className="p-3">
+                      <h4 className="font-medium text-sm truncate">{item.name}</h4>
+                      <p className="text-xs text-muted-foreground">Round {item.pickRound}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+        </main>
+
+        <Dialog open={!!pickingItem} onOpenChange={(open) => !open && setPickingItem(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle className="font-serif">Confirm your pick</DialogTitle>
+              <DialogDescription>Once you pick, it's locked in and the turn passes to the next person.</DialogDescription>
+            </DialogHeader>
+            {pickingItem && (
+              <div className="space-y-4 py-2">
+                <div className="aspect-video bg-muted rounded-md overflow-hidden"><ItemImage item={pickingItem} size="lg" /></div>
+                <h3 className="font-semibold text-xl text-center">{pickingItem.name}</h3>
+                {pickingItem.description && <p className="text-sm text-muted-foreground text-center">{pickingItem.description}</p>}
+                <div className="flex gap-3 pt-2">
+                  <Button variant="outline" className="flex-1" onClick={() => setPickingItem(null)}>Cancel</Button>
+                  <Button
+                    onClick={() => makePickMutation.mutate(pickingItem.id)}
+                    disabled={makePickMutation.isPending}
+                    className="flex-1"
+                    style={{ backgroundColor: sibling.color }}
+                    data-testid="button-confirm-my-pick"
+                  >
+                    {makePickMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                    Pick {pickingItem.name}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
 
   const isSubmitted = sibling.wishlistSubmitted;
   const steps = [
