@@ -561,7 +561,7 @@ export default function Admin() {
       const processingFailures = files.length - uploadTotal;
       setBulkProgress(prev => ({ ...prev, total: uploadTotal, uploaded: 0, phase: "uploading" }));
       for (let i = 0; i < uploadTotal; i += 5) {
-        const results = await Promise.allSettled(pendingUploads.slice(i, i + 5).map(({ name, preview }) => apiRequest("POST", "/api/items", { name, imageUrl: preview })));
+        const results = await Promise.allSettled(pendingUploads.slice(i, i + 5).map(({ name, preview }) => apiRequest("POST", "/api/items", { name, imageUrl: preview, adminPin })));
         for (const result of results) { if (result.status === "fulfilled") successCount++; }
         setBulkProgress(prev => ({ ...prev, uploaded: Math.min(i + 5, uploadTotal) }));
       }
@@ -592,7 +592,7 @@ export default function Admin() {
     setBulkUploading(true); setBulkProgress({ processed: bulkFiles.length, uploaded: 0, total: bulkFiles.length, phase: "uploading" });
     let successCount = 0;
     for (let i = 0; i < bulkFiles.length; i += 5) {
-      const results = await Promise.allSettled(bulkFiles.slice(i, i + 5).map(({ name, preview }) => apiRequest("POST", "/api/items", { name, imageUrl: preview })));
+      const results = await Promise.allSettled(bulkFiles.slice(i, i + 5).map(({ name, preview }) => apiRequest("POST", "/api/items", { name, imageUrl: preview, adminPin })));
       for (const result of results) { if (result.status === "fulfilled") successCount++; }
       setBulkProgress(prev => ({ ...prev, uploaded: Math.min(i + 5, bulkFiles.length) }));
     }
