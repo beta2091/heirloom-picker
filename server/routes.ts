@@ -9,6 +9,59 @@ function hashPin(pin: string): string {
   return createHash("sha256").update(`estate-draft-${pin}`).digest("hex").slice(0, 32);
 }
 
+// Simple in-memory rate limiter for PIN-verification endpoints. Single-instance
+// app on Railway, so in-memory is fine. Keyed by (ip + bucket) — e.g. admin
+// login attempts and per-sibling PIN attempts are tracked separately so
+// brute-forcing one sibling doesn't lock out another.
+type RateEntry = { count: number; resetAt: number; blockedUntil: number };
+const rateStore = new Map<string, RateEntry>();
+
+const ipOf = (req: any): string => {
+  const fwd = req.headers["x-forwarded-for"];
+  if (typeof fwd === "string" && fwd.length > 0) return fwd.split(",")[0].trim();
+  return req.ip || req.socket?.remoteAddress || "unknown";
+};
+
+// Returns null if allowed, or a seconds-remaining number if rate-limited.
+function rateLimit(key: string, maxAttempts = 5, windowMs = 15 * 60 * 1000, blockMs = 15 * 60 * 1000): number | null {
+  const now = Date.now();
+  const entry = rateStore.get(key);
+
+  // Currently in a block window
+  if (entry && entry.blockedUntil > now) {
+    return Math.ceil((entry.blockedUntil - now) / 1000);
+  }
+
+  // Expired window — reset
+  if (!entry || entry.resetAt < now) {
+    rateStore.set(key, { count: 1, resetAt: now + windowMs, blockedUntil: 0 });
+    return null;
+  }
+
+  entry.count += 1;
+  if (entry.count > maxAttempts) {
+    entry.blockedUntil = now + blockMs;
+    rateStore.set(key, entry);
+    return Math.ceil(blockMs / 1000);
+  }
+  rateStore.set(key, entry);
+  return null;
+}
+
+// Clear rate limit for a key (call on successful auth so you don't punish
+// the legitimate user after they finally get it right)
+function rateLimitClear(key: string) {
+  rateStore.delete(key);
+}
+
+// Periodic sweep to keep the map from growing unbounded
+setInterval(() => {
+  const now = Date.now();
+  rateStore.forEach((v, k) => {
+    if (v.blockedUntil < now && v.resetAt < now) rateStore.delete(k);
+  });
+}, 5 * 60 * 1000).unref?.();
+
 function generateRecoveryCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const bytes = randomBytes(8);
@@ -87,6 +140,14 @@ export async function registerRoutes(
 
   app.post("/api/admin/recover", async (req, res) => {
     try {
+      const key = `admin-recover:${ipOf(req)}`;
+      const blockedFor = rateLimit(key, 5, 60 * 60 * 1000, 60 * 60 * 1000);
+      if (blockedFor !== null) {
+        return res.status(429).json({
+          error: `Too many attempts. Try again in ${Math.ceil(blockedFor / 60)} minute(s).`,
+          retryAfter: blockedFor,
+        });
+      }
       const schema = z.object({
         recoveryCode: z.string().min(1),
         newPin: z.string().length(4).regex(/^\d{4}$/),
@@ -94,14 +155,15 @@ export async function registerRoutes(
       });
       const data = schema.parse(req.body);
       const settings = await storage.getAppSettings();
-      
+
       if (!settings?.recoveryCode) {
         return res.status(400).json({ error: "No recovery code set" });
       }
-      
+
       if (settings.recoveryCode !== data.recoveryCode) {
         return res.status(403).json({ error: "Invalid recovery code" });
       }
+      rateLimitClear(key);
       
       const newRecoveryCode = generateRecoveryCode();
       await storage.updateAppSettings({
@@ -174,12 +236,22 @@ export async function registerRoutes(
 
   app.post("/api/admin/verify-pin", async (req, res) => {
     try {
+      const key = `admin-pin:${ipOf(req)}`;
+      const blockedFor = rateLimit(key);
+      if (blockedFor !== null) {
+        return res.status(429).json({
+          error: `Too many attempts. Try again in ${Math.ceil(blockedFor / 60)} minute(s).`,
+          retryAfter: blockedFor,
+        });
+      }
       const data = verifyPinSchema.parse(req.body);
       const settings = await storage.getAppSettings();
       if (!settings?.adminPin) {
+        rateLimitClear(key);
         return res.json({ verified: true, hasPin: false });
       }
       const verified = settings.adminPin === hashPin(data.pin);
+      if (verified) rateLimitClear(key);
       res.json({ verified, hasPin: true });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -195,11 +267,20 @@ export async function registerRoutes(
 
   app.post("/api/admin/dashboard", async (req, res) => {
     try {
+      const key = `admin-dashboard:${ipOf(req)}`;
+      const blockedFor = rateLimit(key);
+      if (blockedFor !== null) {
+        return res.status(429).json({
+          error: `Too many attempts. Try again in ${Math.ceil(blockedFor / 60)} minute(s).`,
+          retryAfter: blockedFor,
+        });
+      }
       const data = adminDashboardSchema.parse(req.body);
       const settings = await storage.getAppSettings();
       if (!settings?.adminPin || settings.adminPin !== hashPin(data.pin)) {
         return res.status(401).json({ error: "Invalid admin PIN" });
       }
+      rateLimitClear(key);
       
       const siblings = await storage.getAllSiblings();
       const draft = await storage.getDraftState();
@@ -309,13 +390,23 @@ export async function registerRoutes(
     return { ...rest, hasPin: !!pin };
   };
 
-  // Helper to verify admin PIN from a request (header or body)
+  // Helper to verify admin PIN from a request (header or body).
+  // Also rate-limits by IP so attackers can't brute-force the admin PIN by
+  // firing floods at any admin-gated endpoint (not just /verify-pin).
+  // Returns false both for "wrong pin" and "rate-limited" — callers treat
+  // both the same way (401). To surface 429 on the dedicated verify endpoints
+  // we still rate-limit there explicitly.
   const verifyAdminPin = async (req: any): Promise<boolean> => {
     const pin = (req.headers["x-admin-pin"] as string) || req.body?.adminPin || req.query?.adminPin;
     if (!pin) return false;
+    const key = `admin-verify:${ipOf(req)}`;
+    const blockedFor = rateLimit(key, 20, 15 * 60 * 1000, 15 * 60 * 1000);
+    if (blockedFor !== null) return false;
     const settings = await storage.getAppSettings();
     if (!settings?.adminPin) return false;
-    return settings.adminPin === hashPin(pin);
+    const ok = settings.adminPin === hashPin(pin);
+    if (ok) rateLimitClear(key);
+    return ok;
   };
 
   // Get all siblings (PUBLIC — shareToken is stripped)
@@ -406,15 +497,25 @@ export async function registerRoutes(
   // Verify sibling PIN
   app.post("/api/siblings/:id/verify-pin", async (req, res) => {
     try {
+      const key = `sibling-pin:${req.params.id}:${ipOf(req)}`;
+      const blockedFor = rateLimit(key);
+      if (blockedFor !== null) {
+        return res.status(429).json({
+          error: `Too many attempts. Try again in ${Math.ceil(blockedFor / 60)} minute(s).`,
+          retryAfter: blockedFor,
+        });
+      }
       const { pin } = req.body;
       const sibling = await storage.getSibling(req.params.id);
       if (!sibling) {
         return res.status(404).json({ error: "Sibling not found" });
       }
       if (!sibling.pin) {
+        rateLimitClear(key);
         return res.json({ verified: true, hasPin: false });
       }
       const verified = sibling.pin === hashPin(pin);
+      if (verified) rateLimitClear(key);
       res.json({ verified, hasPin: true });
     } catch (error) {
       res.status(500).json({ error: "Failed to verify PIN" });
