@@ -50,20 +50,22 @@ export default function DraftMaster() {
     refetchInterval: 2000, 
   });
 
+  const adminPin = sessionStorage.getItem("admin-pin") || "";
+
   const startDraftMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", "/api/draft/start");
+      return apiRequest("POST", "/api/draft/start", { adminPin });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/draft"] });
       queryClient.invalidateQueries({ queryKey: ["/api/siblings"] });
-      toast({ title: "Draft started! Order has been randomized." });
+      toast({ title: "Draft started!" });
     },
   });
 
   const pauseDraftMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", "/api/draft/pause");
+      return apiRequest("POST", "/api/draft/pause", { adminPin });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/draft"] });
@@ -73,7 +75,7 @@ export default function DraftMaster() {
 
   const resetDraftMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", "/api/draft/reset");
+      return apiRequest("POST", "/api/draft/reset", { adminPin });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/draft"] });
@@ -85,14 +87,14 @@ export default function DraftMaster() {
 
   const makePickMutation = useMutation({
     mutationFn: async (itemId: string) => {
-      return apiRequest("POST", "/api/draft/pick", { itemId });
+      return apiRequest("POST", "/api/draft/pick", { itemId, adminPin });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/draft"] });
       queryClient.invalidateQueries({ queryKey: ["/api/items"] });
       setPickDialogOpen(false);
       setSelectedItem(null);
-      toast({ title: "Pick confirmed algebraically!" });
+      toast({ title: "Pick confirmed" });
     },
     onError: () => {
       toast({ title: "Failed to make pick", variant: "destructive" });
@@ -116,7 +118,11 @@ export default function DraftMaster() {
 
   const getCurrentPicker = (): SiblingResponse | null => {
     if (!draftState?.isActive || !allAssigned || sortedSiblings.length === 0) return null;
-    const index = draftState.currentPickIndex % sortedSiblings.length;
+    // Snake draft: rounds alternate direction. Round 0 goes 0..N-1, round 1 goes N-1..0, etc.
+    const n = sortedSiblings.length;
+    const round = Math.floor(draftState.currentPickIndex / n);
+    const pos = draftState.currentPickIndex % n;
+    const index = round % 2 === 0 ? pos : n - 1 - pos;
     return sortedSiblings[index];
   };
 

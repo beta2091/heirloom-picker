@@ -911,7 +911,8 @@ export async function registerRoutes(
 
   // ============ DRAFT ============
   
-  // Get draft state
+  // Get draft state (with who's on the clock, so the sibling page can
+  // show the right view without doing the math itself).
   app.get("/api/draft", async (req, res) => {
     try {
       let state = await storage.getDraftState();
@@ -923,23 +924,63 @@ export async function registerRoutes(
           isComplete: false,
         });
       }
-      res.json(state);
+      const allSiblings = await storage.getAllSiblings();
+      const sortedSiblings = allSiblings
+        .filter(s => (s.draftOrder || 0) > 0)
+        .sort((a, b) => a.draftOrder - b.draftOrder);
+
+      let currentPickerId: string | null = null;
+      let currentPickerName: string | null = null;
+      let currentPickerColor: string | null = null;
+      if (state.isActive && sortedSiblings.length > 0) {
+        const idx = pickerForIndex(state.currentPickIndex, sortedSiblings.length);
+        const picker = sortedSiblings[idx];
+        currentPickerId = picker.id;
+        currentPickerName = picker.name;
+        currentPickerColor = picker.color;
+      }
+
+      res.json({
+        ...state,
+        currentPickerId,
+        currentPickerName,
+        currentPickerColor,
+        totalSiblings: sortedSiblings.length,
+      });
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch draft state" });
     }
   });
 
-  // Start draft
+  // Snake-draft picker: for N siblings sorted by draftOrder (1..N),
+  // pickIndex advances 0,1,...,N-1,N-1,N-2,...,0,0,1,... (round reverses each round)
+  const pickerForIndex = (pickIndex: number, n: number) => {
+    if (n <= 0) return 0;
+    const round = Math.floor(pickIndex / n); // 0-indexed round
+    const posInRound = pickIndex % n;
+    return round % 2 === 0 ? posInRound : n - 1 - posInRound;
+  };
+
+  // Start draft (admin only). Preserves an existing lottery-assigned order;
+  // only randomizes if no order has been set yet.
   app.post("/api/draft/start", async (req, res) => {
     try {
+      if (!(await verifyAdminPin(req))) {
+        return res.status(401).json({ error: "Admin PIN required" });
+      }
       const allSiblings = await storage.getAllSiblings();
       if (allSiblings.length === 0) {
         return res.status(400).json({ error: "No family members to draft" });
       }
 
-      const shuffled = [...allSiblings].sort(() => Math.random() - 0.5);
-      for (let i = 0; i < shuffled.length; i++) {
-        await storage.updateSibling(shuffled[i].id, { draftOrder: i + 1 });
+      // If an order already exists (e.g. from the lottery), KEEP IT.
+      // Only fall back to a random shuffle if no one has a draftOrder yet.
+      const hasOrder = allSiblings.every(s => (s.draftOrder || 0) > 0);
+      if (!hasOrder) {
+        const shuffled = [...allSiblings].sort(() => Math.random() - 0.5);
+        for (let i = 0; i < shuffled.length; i++) {
+          await storage.updateSibling(shuffled[i].id, { draftOrder: i + 1 });
+        }
       }
 
       const state = await storage.createOrUpdateDraftState({
@@ -954,9 +995,12 @@ export async function registerRoutes(
     }
   });
 
-  // Pause draft
+  // Pause draft (admin only)
   app.post("/api/draft/pause", async (req, res) => {
     try {
+      if (!(await verifyAdminPin(req))) {
+        return res.status(401).json({ error: "Admin PIN required" });
+      }
       const state = await storage.createOrUpdateDraftState({
         isActive: false,
       });
@@ -966,9 +1010,12 @@ export async function registerRoutes(
     }
   });
 
-  // Reset draft
+  // Reset draft (admin only)
   app.post("/api/draft/reset", async (req, res) => {
     try {
+      if (!(await verifyAdminPin(req))) {
+        return res.status(401).json({ error: "Admin PIN required" });
+      }
       await storage.resetDraft();
 
       const allSiblings = await storage.getAllSiblings();
@@ -983,10 +1030,12 @@ export async function registerRoutes(
     }
   });
 
-  // Make a pick
+  // Make a pick. Authorized by EITHER admin PIN (admin override picking on
+  // behalf of whoever is on the clock) OR a shareToken that matches the
+  // CURRENT picker (the sibling picking for themselves via their private link).
   app.post("/api/draft/pick", async (req, res) => {
     try {
-      const { itemId } = req.body;
+      const { itemId, shareToken } = req.body;
       if (!itemId) {
         return res.status(400).json({ error: "Item ID is required" });
       }
@@ -998,13 +1047,21 @@ export async function registerRoutes(
 
       const siblings = await storage.getAllSiblings();
       const sortedSiblings = siblings.sort((a, b) => a.draftOrder - b.draftOrder);
-      
+
       if (sortedSiblings.length === 0) {
         return res.status(400).json({ error: "No siblings in draft" });
       }
 
-      const currentPickerIndex = draftState.currentPickIndex % sortedSiblings.length;
+      const currentPickerIndex = pickerForIndex(draftState.currentPickIndex, sortedSiblings.length);
       const currentPicker = sortedSiblings[currentPickerIndex];
+
+      // Auth: admin OR the current picker's own shareToken.
+      // A sibling can never pick for someone else, even with a valid share link.
+      const adminOk = await verifyAdminPin(req);
+      const tokenOk = !!shareToken && currentPicker.shareToken === shareToken;
+      if (!adminOk && !tokenOk) {
+        return res.status(401).json({ error: "Not your turn or invalid auth" });
+      }
 
       // Update the item
       const item = await storage.getItem(itemId);
@@ -1023,7 +1080,7 @@ export async function registerRoutes(
       // Advance to next pick
       const nextPickIndex = draftState.currentPickIndex + 1;
       const nextRound = Math.floor(nextPickIndex / sortedSiblings.length) + 1;
-      
+
       // Check if draft is complete
       const allItems = await storage.getAllItems();
       const unpickedItems = allItems.filter(i => !i.pickedBySiblingId && i.id !== itemId);

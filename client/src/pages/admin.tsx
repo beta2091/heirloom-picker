@@ -121,11 +121,18 @@ function AdminDashboard({ verifiedPin }: { verifiedPin: string }) {
                 <p className="text-sm text-muted-foreground">Waiting on everyone to finish their wishlists.</p>
               </div>
             )}
-            <Link href="/draft-master">
-              <Button size="lg" className="w-full gap-2">
-                Open Master Draft View <ExternalLink className="w-4 h-4" />
-              </Button>
-            </Link>
+            <div className="space-y-2">
+              <Link href="/lottery">
+                <Button size="lg" variant="outline" className="w-full gap-2">
+                  Draft Lottery (pick order) <ExternalLink className="w-4 h-4" />
+                </Button>
+              </Link>
+              <Link href="/draft-master">
+                <Button size="lg" className="w-full gap-2">
+                  Open Master Draft View <ExternalLink className="w-4 h-4" />
+                </Button>
+              </Link>
+            </div>
           </CardContent>
         </Card>
       </div>

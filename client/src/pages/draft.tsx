@@ -49,20 +49,22 @@ export default function Draft() {
     queryKey: ["/api/draft"],
   });
 
+  const adminPin = sessionStorage.getItem("admin-pin") || "";
+
   const startDraftMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", "/api/draft/start");
+      return apiRequest("POST", "/api/draft/start", { adminPin });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/draft"] });
       queryClient.invalidateQueries({ queryKey: ["/api/siblings"] });
-      toast({ title: "Draft started! Order has been randomized." });
+      toast({ title: "Draft started!" });
     },
   });
 
   const pauseDraftMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", "/api/draft/pause");
+      return apiRequest("POST", "/api/draft/pause", { adminPin });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/draft"] });
@@ -72,7 +74,7 @@ export default function Draft() {
 
   const resetDraftMutation = useMutation({
     mutationFn: async () => {
-      return apiRequest("POST", "/api/draft/reset");
+      return apiRequest("POST", "/api/draft/reset", { adminPin });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/draft"] });
@@ -84,7 +86,7 @@ export default function Draft() {
 
   const makePickMutation = useMutation({
     mutationFn: async (itemId: string) => {
-      return apiRequest("POST", "/api/draft/pick", { itemId });
+      return apiRequest("POST", "/api/draft/pick", { itemId, adminPin });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/draft"] });
@@ -109,7 +111,11 @@ export default function Draft() {
 
   const getCurrentPicker = (): SiblingResponse | null => {
     if (!draftState?.isActive || !allAssigned || sortedSiblings.length === 0) return null;
-    const index = draftState.currentPickIndex % sortedSiblings.length;
+    // Snake draft: rounds alternate direction.
+    const n = sortedSiblings.length;
+    const round = Math.floor(draftState.currentPickIndex / n);
+    const pos = draftState.currentPickIndex % n;
+    const index = round % 2 === 0 ? pos : n - 1 - pos;
     return sortedSiblings[index];
   };
 
