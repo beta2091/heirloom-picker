@@ -522,6 +522,24 @@ export async function registerRoutes(
     }
   });
 
+  // Rotate a sibling's share token. Admin-only. Invalidates the previous
+  // private link immediately — useful if a link was shared somewhere it
+  // shouldn't have been (group chat screenshot, forwarded email, etc.).
+  app.post("/api/siblings/:id/rotate-token", async (req, res) => {
+    try {
+      if (!(await verifyAdminPin(req))) {
+        return res.status(401).json({ error: "Admin PIN required" });
+      }
+      const updated = await storage.rotateSiblingShareToken(req.params.id);
+      if (!updated) {
+        return res.status(404).json({ error: "Sibling not found" });
+      }
+      res.json(sanitizeSiblingForAdmin(updated));
+    } catch (error) {
+      res.status(500).json({ error: "Failed to rotate share token" });
+    }
+  });
+
   // Delete sibling
   app.delete("/api/siblings/:id", async (req, res) => {
     try {

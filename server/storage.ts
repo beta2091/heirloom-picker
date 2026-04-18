@@ -27,6 +27,7 @@ export interface IStorage {
   createSibling(sibling: InsertSibling): Promise<Sibling>;
   updateSibling(id: string, updates: Partial<Sibling>): Promise<Sibling | undefined>;
   deleteSibling(id: string): Promise<void>;
+  rotateSiblingShareToken(id: string): Promise<Sibling | undefined>;
 
   // Items
   getAllItems(): Promise<Item[]>;
@@ -148,6 +149,12 @@ export class DatabaseStorage implements IStorage {
       await db.update(items).set({ pickedBySiblingId: null, pickRound: null }).where(eq(items.id, item.id));
     }
     await db.delete(siblings).where(eq(siblings.id, id));
+  }
+
+  async rotateSiblingShareToken(id: string): Promise<Sibling | undefined> {
+    const newToken = randomUUID();
+    const result = await db.update(siblings).set({ shareToken: newToken }).where(eq(siblings.id, id)).returning();
+    return result[0];
   }
 
   // Items
