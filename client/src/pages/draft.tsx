@@ -73,14 +73,17 @@ export default function Draft() {
   });
 
   const resetDraftMutation = useMutation({
+    // Default to keepOrder=true (picks-only reset) from this page — preserves
+    // lottery order so mock runs are cheap. For a full reset (clearing the
+    // lottery), use the Reset button on /draft-master.
     mutationFn: async () => {
-      return apiRequest("POST", "/api/draft/reset", { adminPin });
+      return apiRequest("POST", "/api/draft/reset", { adminPin, keepOrder: true });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/draft"] });
       queryClient.invalidateQueries({ queryKey: ["/api/items"] });
       queryClient.invalidateQueries({ queryKey: ["/api/siblings"] });
-      toast({ title: "Draft reset" });
+      toast({ title: "Picks cleared — lottery order preserved" });
     },
   });
 

@@ -1010,17 +1010,27 @@ export async function registerRoutes(
     }
   });
 
-  // Reset draft (admin only)
+  // Reset draft (admin only).
+  // Body: { adminPin, keepOrder?: boolean }
+  // - keepOrder true: clears picks and draft state but PRESERVES the lottery
+  //   pick order on each sibling. Useful for running mock drafts without
+  //   having to re-run the lottery every time.
+  // - keepOrder false (default): full reset — also zeroes out draftOrder so
+  //   the lottery would have to run again before starting.
   app.post("/api/draft/reset", async (req, res) => {
     try {
       if (!(await verifyAdminPin(req))) {
         return res.status(401).json({ error: "Admin PIN required" });
       }
+      const keepOrder = req.body?.keepOrder === true;
+
       await storage.resetDraft();
 
-      const allSiblings = await storage.getAllSiblings();
-      for (const sib of allSiblings) {
-        await storage.updateSibling(sib.id, { draftOrder: 0 });
+      if (!keepOrder) {
+        const allSiblings = await storage.getAllSiblings();
+        for (const sib of allSiblings) {
+          await storage.updateSibling(sib.id, { draftOrder: 0 });
+        }
       }
 
       const state = await storage.getDraftState();

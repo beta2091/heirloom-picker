@@ -74,16 +74,19 @@ export default function DraftMaster() {
   });
 
   const resetDraftMutation = useMutation({
-    mutationFn: async () => {
-      return apiRequest("POST", "/api/draft/reset", { adminPin });
+    mutationFn: async (keepOrder: boolean) => {
+      return apiRequest("POST", "/api/draft/reset", { adminPin, keepOrder });
     },
-    onSuccess: () => {
+    onSuccess: (_data, keepOrder) => {
       queryClient.invalidateQueries({ queryKey: ["/api/draft"] });
       queryClient.invalidateQueries({ queryKey: ["/api/items"] });
       queryClient.invalidateQueries({ queryKey: ["/api/siblings"] });
-      toast({ title: "Draft reset" });
+      setResetDialogOpen(false);
+      toast({ title: keepOrder ? "Picks cleared — lottery order preserved" : "Draft fully reset — re-run the lottery to set pick order" });
     },
   });
+
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
 
   const makePickMutation = useMutation({
     mutationFn: async (itemId: string) => {
@@ -196,7 +199,7 @@ export default function DraftMaster() {
             {(draftState?.isActive || draftState?.isComplete || pickedItems.length > 0) && (
               <Button
                 variant="outline"
-                onClick={() => resetDraftMutation.mutate()}
+                onClick={() => setResetDialogOpen(true)}
                 disabled={resetDraftMutation.isPending}
                 className="gap-2"
                 data-testid="button-reset-draft"
@@ -427,6 +430,40 @@ export default function DraftMaster() {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={resetDialogOpen} onOpenChange={setResetDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="font-serif">Reset the draft</DialogTitle>
+            <DialogDescription>Pick what to clear. Rankings submitted by each sibling are never affected by reset.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => resetDraftMutation.mutate(true)}>
+              <CardContent className="py-4 px-5">
+                <div className="flex items-start gap-3">
+                  <RotateCcw className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+                  <div className="flex-1">
+                    <h3 className="font-semibold">Reset picks only</h3>
+                    <p className="text-sm text-muted-foreground mt-1">Clears all picks and returns items to the pool. <b>Keeps the lottery pick order</b>, so you can start the draft again right away. Use this for mock runs.</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="cursor-pointer hover:border-destructive/50 transition-colors" onClick={() => resetDraftMutation.mutate(false)}>
+              <CardContent className="py-4 px-5">
+                <div className="flex items-start gap-3">
+                  <RotateCcw className="w-5 h-5 text-destructive mt-0.5 shrink-0" />
+                  <div className="flex-1">
+                    <h3 className="font-semibold">Full reset</h3>
+                    <p className="text-sm text-muted-foreground mt-1">Clears picks AND the lottery pick order. You'll need to re-run the lottery before starting the next draft.</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Button variant="ghost" onClick={() => setResetDialogOpen(false)} className="w-full">Cancel</Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
