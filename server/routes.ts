@@ -294,13 +294,31 @@ export async function registerRoutes(
   });
 
   // ============ SIBLINGS ============
-  
+
+  // Public-safe sanitizer: strips pin AND shareToken so public endpoints
+  // never leak private tokens that would let anyone impersonate a sibling.
   const sanitizeSibling = (sibling: any) => {
+    const { pin, shareToken, ...rest } = sibling;
+    return { ...rest, hasPin: !!pin };
+  };
+
+  // Admin sanitizer: includes shareToken (for the copy-link UI). Only used
+  // by endpoints gated behind a verified admin PIN.
+  const sanitizeSiblingForAdmin = (sibling: any) => {
     const { pin, ...rest } = sibling;
     return { ...rest, hasPin: !!pin };
   };
 
-  // Get all siblings
+  // Helper to verify admin PIN from a request (header or body)
+  const verifyAdminPin = async (req: any): Promise<boolean> => {
+    const pin = (req.headers["x-admin-pin"] as string) || req.body?.adminPin || req.query?.adminPin;
+    if (!pin) return false;
+    const settings = await storage.getAppSettings();
+    if (!settings?.adminPin) return false;
+    return settings.adminPin === hashPin(pin);
+  };
+
+  // Get all siblings (PUBLIC — shareToken is stripped)
   app.get("/api/siblings", async (req, res) => {
     try {
       const siblings = await storage.getAllSiblings();
@@ -310,7 +328,20 @@ export async function registerRoutes(
     }
   });
 
-  // Get single sibling
+  // Admin-only: returns full sibling records including shareTokens, for the copy-link UI
+  app.get("/api/admin/siblings", async (req, res) => {
+    try {
+      if (!(await verifyAdminPin(req))) {
+        return res.status(401).json({ error: "Admin PIN required" });
+      }
+      const siblings = await storage.getAllSiblings();
+      res.json(siblings.map(sanitizeSiblingForAdmin));
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch siblings" });
+    }
+  });
+
+  // Get single sibling (PUBLIC — shareToken stripped)
   app.get("/api/siblings/:id", async (req, res) => {
     try {
       const sibling = await storage.getSibling(req.params.id);
@@ -323,12 +354,15 @@ export async function registerRoutes(
     }
   });
 
-  // Create sibling
+  // Create sibling (admin-only — sets pin/shareToken on the server, admin needs shareToken back)
   app.post("/api/siblings", async (req, res) => {
     try {
+      if (!(await verifyAdminPin(req))) {
+        return res.status(401).json({ error: "Admin PIN required" });
+      }
       const data = insertSiblingSchema.parse(req.body);
       const sibling = await storage.createSibling(data);
-      res.status(201).json(sanitizeSibling(sibling));
+      res.status(201).json(sanitizeSiblingForAdmin(sibling));
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors });
@@ -347,6 +381,9 @@ export async function registerRoutes(
 
   app.put("/api/siblings/:id", async (req, res) => {
     try {
+      if (!(await verifyAdminPin(req))) {
+        return res.status(401).json({ error: "Admin PIN required" });
+      }
       const data = updateSiblingSchema.parse(req.body);
       // Hash the PIN before storing, same as admin PIN
       const updates = { ...data };
@@ -357,7 +394,7 @@ export async function registerRoutes(
       if (!sibling) {
         return res.status(404).json({ error: "Sibling not found" });
       }
-      res.json(sanitizeSibling(sibling));
+      res.json(sanitizeSiblingForAdmin(sibling));
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors });
@@ -387,10 +424,37 @@ export async function registerRoutes(
   // Delete sibling
   app.delete("/api/siblings/:id", async (req, res) => {
     try {
+      if (!(await verifyAdminPin(req))) {
+        return res.status(401).json({ error: "Admin PIN required" });
+      }
       await storage.deleteSibling(req.params.id);
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ error: "Failed to delete sibling" });
+    }
+  });
+
+  // Full-wipe: deletes all siblings, items, ratings, wishlists, and resets draft state.
+  // Preserves app settings (admin PIN, family name, hero photo) so the admin can
+  // wipe and test without having to re-run first-time setup.
+  app.post("/api/admin/wipe-all", async (req, res) => {
+    try {
+      if (!(await verifyAdminPin(req))) {
+        return res.status(401).json({ error: "Admin PIN required" });
+      }
+      // Delete siblings — deleteSibling cascades to ratings/wishlists/suggestions/family-members
+      const allSiblings = await storage.getAllSiblings();
+      for (const s of allSiblings) {
+        await storage.deleteSibling(s.id);
+      }
+      // Delete all items
+      await storage.deleteAllItems();
+      // Reset draft state
+      await storage.resetDraft();
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Failed to wipe all data:", error);
+      res.status(500).json({ error: "Failed to wipe data" });
     }
   });
 
@@ -458,6 +522,9 @@ export async function registerRoutes(
   // Create item
   app.post("/api/items", async (req, res) => {
     try {
+      if (!(await verifyAdminPin(req))) {
+        return res.status(401).json({ error: "Admin PIN required" });
+      }
       const data = insertItemSchema.parse(req.body);
       const item = await storage.createItem(data);
       res.status(201).json(item);
@@ -479,6 +546,9 @@ export async function registerRoutes(
 
   app.put("/api/items/:id", async (req, res) => {
     try {
+      if (!(await verifyAdminPin(req))) {
+        return res.status(401).json({ error: "Admin PIN required" });
+      }
       const data = updateItemSchema.parse(req.body);
       const item = await storage.updateItem(req.params.id, data);
       res.json(item);
@@ -493,6 +563,9 @@ export async function registerRoutes(
   // Delete item
   app.delete("/api/items/:id", async (req, res) => {
     try {
+      if (!(await verifyAdminPin(req))) {
+        return res.status(401).json({ error: "Admin PIN required" });
+      }
       await storage.deleteItem(req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -502,6 +575,9 @@ export async function registerRoutes(
 
   app.delete("/api/items", async (req, res) => {
     try {
+      if (!(await verifyAdminPin(req))) {
+        return res.status(401).json({ error: "Admin PIN required" });
+      }
       await storage.deleteAllItems();
       res.status(204).send();
     } catch (error) {
@@ -537,10 +613,11 @@ export async function registerRoutes(
   const verifyWishlistAccess = async (siblingId: string, pin?: string, shareToken?: string): Promise<boolean> => {
     const sibling = await storage.getSibling(siblingId);
     if (!sibling) return false;
-    if (!sibling.pin) return true;
+    // Always require proof of identity (shareToken OR matching PIN).
+    // Rankings are private — "no PIN set" must NOT mean "open to everyone."
     if (shareToken && sibling.shareToken === shareToken) return true;
-    if (!pin) return false;
-    return sibling.pin === hashPin(pin);
+    if (sibling.pin && pin && sibling.pin === hashPin(pin)) return true;
+    return false;
   };
 
   // Add to wishlist
@@ -629,14 +706,15 @@ export async function registerRoutes(
       if (!sibling) {
         return res.status(404).json({ error: "Sibling not found" });
       }
-      if (sibling.pin) {
-        const pin = req.query.pin as string;
-        const shareToken = req.query.shareToken as string;
-        if (shareToken && sibling.shareToken === shareToken) {
-          // Token auth bypasses PIN
-        } else if (!pin || sibling.pin !== hashPin(pin)) {
-          return res.status(401).json({ error: "PIN required", requiresPin: true });
-        }
+      // Rankings are always private. Require EITHER a matching shareToken,
+      // a matching PIN (if set), or a valid admin PIN. No more "no PIN = no auth."
+      const pin = req.query.pin as string | undefined;
+      const shareToken = req.query.shareToken as string | undefined;
+      const adminPinOk = await verifyAdminPin(req);
+      const tokenOk = !!shareToken && sibling.shareToken === shareToken;
+      const pinOk = !!sibling.pin && !!pin && sibling.pin === hashPin(pin);
+      if (!adminPinOk && !tokenOk && !pinOk) {
+        return res.status(401).json({ error: "Access denied. Use your private link.", requiresAuth: true });
       }
       const ratings = await storage.getRatingsBySibling(req.params.siblingId);
       res.json(ratings);

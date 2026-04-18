@@ -348,48 +348,74 @@ export default function Admin() {
   const audioInputRef = useRef<HTMLInputElement>(null);
   const editAudioInputRef = useRef<HTMLInputElement>(null);
 
-  const { data: siblings = [], isLoading: siblingsLoading } = useQuery<SiblingResponse[]>({ queryKey: ["/api/siblings"] });
+  const adminPin = sessionStorage.getItem("admin-pin") || "";
+  const { data: siblings = [], isLoading: siblingsLoading } = useQuery<SiblingResponse[]>({
+    queryKey: ["/api/admin/siblings", adminPin],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/siblings", { headers: { "x-admin-pin": adminPin } });
+      if (!res.ok) throw new Error("Failed to fetch siblings");
+      return res.json();
+    },
+    enabled: !!adminPin,
+  });
   const { data: items = [], isLoading: itemsLoading } = useQuery<ItemResponse[]>({ queryKey: ["/api/items"] });
 
+  const invalidateSiblings = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/siblings"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/siblings"] });
+  };
+
   const addSiblingMutation = useMutation({
-    mutationFn: async (data: { name: string; color: string }) => apiRequest("POST", "/api/siblings", data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/siblings"] }); setSiblingDialogOpen(false); setNewSiblingName(""); toast({ title: "Family member added" }); },
+    mutationFn: async (data: { name: string; color: string }) => apiRequest("POST", "/api/siblings", { ...data, adminPin }),
+    onSuccess: () => { invalidateSiblings(); setSiblingDialogOpen(false); setNewSiblingName(""); toast({ title: "Family member added" }); },
     onError: () => toast({ title: "Failed to add family member", variant: "destructive" }),
   });
 
   const deleteSiblingMutation = useMutation({
-    mutationFn: async (id: string) => apiRequest("DELETE", `/api/siblings/${id}`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/siblings"] }); toast({ title: "Family member removed" }); },
+    mutationFn: async (id: string) => apiRequest("DELETE", `/api/siblings/${id}`, { adminPin }),
+    onSuccess: () => { invalidateSiblings(); toast({ title: "Family member removed" }); },
   });
 
   const updateSiblingMutation = useMutation({
-    mutationFn: async (data: { id: string; name?: string; color?: string; pin?: string | null }) => apiRequest("PUT", `/api/siblings/${data.id}`, { name: data.name, color: data.color, pin: data.pin }),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/siblings"] }); setEditSiblingDialogOpen(false); setEditingSibling(null); toast({ title: "Family member updated" }); },
+    mutationFn: async (data: { id: string; name?: string; color?: string; pin?: string | null }) => apiRequest("PUT", `/api/siblings/${data.id}`, { name: data.name, color: data.color, pin: data.pin, adminPin }),
+    onSuccess: () => { invalidateSiblings(); setEditSiblingDialogOpen(false); setEditingSibling(null); toast({ title: "Family member updated" }); },
     onError: () => toast({ title: "Failed to update family member", variant: "destructive" }),
   });
 
   const addItemMutation = useMutation({
-    mutationFn: async (data: { name: string; description?: string; imageUrl?: string; audioUrl?: string }) => apiRequest("POST", "/api/items", data),
+    mutationFn: async (data: { name: string; description?: string; imageUrl?: string; audioUrl?: string }) => apiRequest("POST", "/api/items", { ...data, adminPin }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/items"] }); setItemDialogOpen(false); setNewItemName(""); setNewItemDescription(""); setNewItemImage(null); setNewItemAudio(null); toast({ title: "Item added" }); },
     onError: () => toast({ title: "Failed to add item", variant: "destructive" }),
   });
 
   const deleteItemMutation = useMutation({
-    mutationFn: async (id: string) => { await apiRequest("DELETE", `/api/items/${id}`); },
+    mutationFn: async (id: string) => { await apiRequest("DELETE", `/api/items/${id}`, { adminPin }); },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/items"] }); toast({ title: "Item removed" }); },
     onError: (error) => { console.error("Delete failed:", error); toast({ title: "Failed to remove item", variant: "destructive" }); },
   });
 
   const [deleteAllDialogOpen, setDeleteAllDialogOpen] = useState(false);
+  const [wipeAllDialogOpen, setWipeAllDialogOpen] = useState(false);
 
   const deleteAllItemsMutation = useMutation({
-    mutationFn: async () => { await apiRequest("DELETE", "/api/items"); },
+    mutationFn: async () => { await apiRequest("DELETE", "/api/items", { adminPin }); },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/items"] }); setDeleteAllDialogOpen(false); toast({ title: "All items deleted" }); },
     onError: () => toast({ title: "Failed to delete items", variant: "destructive" }),
   });
 
+  const wipeAllMutation = useMutation({
+    mutationFn: async () => { await apiRequest("POST", "/api/admin/wipe-all", { adminPin }); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/items"] });
+      invalidateSiblings();
+      setWipeAllDialogOpen(false);
+      toast({ title: "Everything cleared", description: "Fresh start. Add family and items to begin." });
+    },
+    onError: () => toast({ title: "Failed to clear data", variant: "destructive" }),
+  });
+
   const updateItemMutation = useMutation({
-    mutationFn: async (data: { id: string; name: string; description?: string | null; imageUrl?: string | null; audioUrl?: string | null }) => apiRequest("PUT", `/api/items/${data.id}`, { name: data.name, description: data.description, imageUrl: data.imageUrl, audioUrl: data.audioUrl }),
+    mutationFn: async (data: { id: string; name: string; description?: string | null; imageUrl?: string | null; audioUrl?: string | null }) => apiRequest("PUT", `/api/items/${data.id}`, { name: data.name, description: data.description, imageUrl: data.imageUrl, audioUrl: data.audioUrl, adminPin }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/items"] }); setEditDialogOpen(false); setEditingItem(null); toast({ title: "Item updated" }); },
     onError: () => toast({ title: "Failed to update item", variant: "destructive" }),
   });
@@ -769,6 +795,37 @@ export default function Admin() {
           <TabsContent value="settings" className="mt-0 outline-none space-y-8 animate-in fade-in duration-300">
             <FamilySettings verifiedPin={verifiedPin} />
             <AdminSettings verifiedPin={verifiedPin} />
+
+            <Card className="border-destructive/40">
+              <CardHeader>
+                <CardTitle className="font-serif text-xl text-destructive flex items-center gap-2"><Trash2 className="w-5 h-5" /> Danger Zone</CardTitle>
+                <CardDescription>Permanently delete all family members, items, ratings, and draft state. Your admin PIN and family info stay. Use this to start over fresh.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Dialog open={wipeAllDialogOpen} onOpenChange={setWipeAllDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="destructive" className="gap-2" data-testid="button-wipe-all">
+                      <Trash2 className="w-4 h-4" /> Clear all data & start fresh
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle className="font-serif">Clear all data?</DialogTitle>
+                      <DialogDescription>
+                        This deletes all family members, items, photos, ratings, and draft picks. Your admin PIN, family name, and hero photo stay. This cannot be undone.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex gap-2 justify-end pt-4">
+                      <Button variant="outline" onClick={() => setWipeAllDialogOpen(false)}>Cancel</Button>
+                      <Button variant="destructive" onClick={() => wipeAllMutation.mutate()} disabled={wipeAllMutation.isPending} className="gap-2" data-testid="button-confirm-wipe-all">
+                        {wipeAllMutation.isPending && <Loader2 className="w-4 h-4 animate-spin" />}
+                        Yes, clear everything
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </main>

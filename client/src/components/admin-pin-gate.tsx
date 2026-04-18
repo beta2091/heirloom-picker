@@ -56,6 +56,8 @@ export function AdminPinGate({ children, title = "Admin Access", description = "
       if (data.verified) {
         setIsVerified(true);
         setVerifiedPin(pinInput);
+        // Stash for use by admin-only API calls from child components
+        sessionStorage.setItem("admin-pin", pinInput);
       } else {
         setPinError(true);
       }
@@ -141,6 +143,7 @@ export function AdminPinGate({ children, title = "Admin Access", description = "
       if (data.success) {
         setRecoveryCode(data.recoveryCode);
         setVerifiedPin(newPin);
+        sessionStorage.setItem("admin-pin", newPin);
         queryClient.invalidateQueries({ queryKey: ["/api/admin/status"] });
         queryClient.invalidateQueries({ queryKey: ["/api/family-settings"] });
       }
@@ -176,6 +179,7 @@ export function AdminPinGate({ children, title = "Admin Access", description = "
       if (data.success) {
         setRecoveryCode(data.recoveryCode);
         setVerifiedPin(recoveryNewPin);
+        sessionStorage.setItem("admin-pin", recoveryNewPin);
         setShowRecovery(false);
         queryClient.invalidateQueries({ queryKey: ["/api/admin/status"] });
       }
