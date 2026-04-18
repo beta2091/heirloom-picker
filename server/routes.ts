@@ -587,21 +587,24 @@ export async function registerRoutes(
 
   // ============ WISHLIST ============
   
-  // Get wishlist by sibling (requires PIN verification if sibling has PIN set)
+  // Get wishlist by sibling. Private: requires admin PIN, matching shareToken,
+  // or matching sibling PIN. "No PIN set" is NOT open — that was the old leak.
   app.get("/api/wishlist/:siblingId", async (req, res) => {
     try {
       const sibling = await storage.getSibling(req.params.siblingId);
       if (!sibling) {
         return res.status(404).json({ error: "Sibling not found" });
       }
-      
-      if (sibling.pin) {
-        const pin = req.query.pin as string;
-        if (!pin || sibling.pin !== hashPin(pin)) {
-          return res.status(401).json({ error: "PIN required", requiresPin: true });
-        }
+
+      const pin = req.query.pin as string | undefined;
+      const shareToken = req.query.shareToken as string | undefined;
+      const adminPinOk = await verifyAdminPin(req);
+      const tokenOk = !!shareToken && sibling.shareToken === shareToken;
+      const pinOk = !!sibling.pin && !!pin && sibling.pin === hashPin(pin);
+      if (!adminPinOk && !tokenOk && !pinOk) {
+        return res.status(401).json({ error: "Access denied. Use your private link.", requiresAuth: true });
       }
-      
+
       const wishlist = await storage.getWishlistBySibling(req.params.siblingId);
       res.json(wishlist);
     } catch (error) {
@@ -973,13 +976,28 @@ export async function registerRoutes(
         return res.status(400).json({ error: "No family members to draft" });
       }
 
-      // If an order already exists (e.g. from the lottery), KEEP IT.
-      // Only fall back to a random shuffle if no one has a draftOrder yet.
-      const hasOrder = allSiblings.every(s => (s.draftOrder || 0) > 0);
-      if (!hasOrder) {
-        const shuffled = [...allSiblings].sort(() => Math.random() - 0.5);
+      // Preserve any existing lottery-assigned order. Only assign new
+      // draftOrder values to siblings who don't have one yet (draftOrder = 0
+      // or null). This means:
+      //   - If nobody has an order: randomize everyone.
+      //   - If lottery already ran: keep it. Siblings added post-lottery
+      //     get appended to the end in random order (never reshuffling the
+      //     people who already have positions).
+      const withOrder = allSiblings.filter(s => (s.draftOrder || 0) > 0);
+      const withoutOrder = allSiblings.filter(s => (s.draftOrder || 0) <= 0);
+
+      if (withOrder.length === 0) {
+        // Full shuffle — no lottery has run
+        const shuffled = [...withoutOrder].sort(() => Math.random() - 0.5);
         for (let i = 0; i < shuffled.length; i++) {
           await storage.updateSibling(shuffled[i].id, { draftOrder: i + 1 });
+        }
+      } else if (withoutOrder.length > 0) {
+        // Append new siblings to end, keeping existing lottery order intact
+        const maxOrder = Math.max(...withOrder.map(s => s.draftOrder || 0));
+        const shuffled = [...withoutOrder].sort(() => Math.random() - 0.5);
+        for (let i = 0; i < shuffled.length; i++) {
+          await storage.updateSibling(shuffled[i].id, { draftOrder: maxOrder + i + 1 });
         }
       }
 
@@ -1056,7 +1074,12 @@ export async function registerRoutes(
       }
 
       const siblings = await storage.getAllSiblings();
-      const sortedSiblings = siblings.sort((a, b) => a.draftOrder - b.draftOrder);
+      // Only siblings with an assigned draftOrder participate. Must match
+      // the filter in GET /api/draft so the picker index agrees with what
+      // the UI displays.
+      const sortedSiblings = siblings
+        .filter(s => (s.draftOrder || 0) > 0)
+        .sort((a, b) => a.draftOrder - b.draftOrder);
 
       if (sortedSiblings.length === 0) {
         return res.status(400).json({ error: "No siblings in draft" });
@@ -1229,19 +1252,27 @@ export async function registerRoutes(
     }
   });
 
-  // Also allow sibling to delete suggestions from their page (with PIN check)
+  // Allow sibling to delete suggestions from their page. Requires admin OR
+  // shareToken OR matching sibling PIN — "no PIN set" is NOT open.
   app.delete("/api/siblings/:siblingId/suggestions/:id", async (req, res) => {
     try {
       const sibling = await storage.getSibling(req.params.siblingId);
       if (!sibling) {
         return res.status(404).json({ error: "Sibling not found" });
       }
+      const pin = req.query.pin as string | undefined;
+      const shareToken = req.query.shareToken as string | undefined;
+      const adminPinOk = await verifyAdminPin(req);
+      const tokenOk = !!shareToken && sibling.shareToken === shareToken;
+      const pinOk = !!sibling.pin && !!pin && sibling.pin === hashPin(pin);
+      if (!adminPinOk && !tokenOk && !pinOk) {
+        return res.status(403).json({ error: "Access denied", requiresAuth: true });
+      }
 
-      if (sibling.pin) {
-        const pin = req.query.pin as string;
-        if (!pin || sibling.pin !== hashPin(pin)) {
-          return res.status(403).json({ error: "Invalid PIN" });
-        }
+      // Verify the suggestion actually belongs to this sibling before deleting
+      const allSuggestions = await storage.getSuggestionsBySibling(sibling.id);
+      if (!allSuggestions.some(s => s.id === req.params.id)) {
+        return res.status(404).json({ error: "Suggestion not found for this sibling" });
       }
 
       await storage.deleteFamilySuggestion(req.params.id);
@@ -1251,19 +1282,20 @@ export async function registerRoutes(
     }
   });
 
-  // Get suggestions for a sibling (for their wishlist page)
+  // Get suggestions for a sibling (for their wishlist page). Private.
   app.get("/api/siblings/:siblingId/suggestions", async (req, res) => {
     try {
       const sibling = await storage.getSibling(req.params.siblingId);
       if (!sibling) {
         return res.status(404).json({ error: "Sibling not found" });
       }
-
-      if (sibling.pin) {
-        const pin = req.query.pin as string;
-        if (!pin || sibling.pin !== hashPin(pin)) {
-          return res.status(403).json({ error: "Invalid PIN" });
-        }
+      const pin = req.query.pin as string | undefined;
+      const shareToken = req.query.shareToken as string | undefined;
+      const adminPinOk = await verifyAdminPin(req);
+      const tokenOk = !!shareToken && sibling.shareToken === shareToken;
+      const pinOk = !!sibling.pin && !!pin && sibling.pin === hashPin(pin);
+      if (!adminPinOk && !tokenOk && !pinOk) {
+        return res.status(401).json({ error: "Access denied. Use your private link.", requiresAuth: true });
       }
 
       const suggestions = await storage.getSuggestionsBySibling(sibling.id);
@@ -1274,103 +1306,9 @@ export async function registerRoutes(
     }
   });
 
-  // ============ VIEWER (READ-ONLY CHILD VIEW) ============
-
-  app.get("/api/viewer/:siblingId", async (req, res) => {
-    try {
-      const sibling = await storage.getSibling(req.params.siblingId);
-      if (!sibling) {
-        return res.status(404).json({ error: "Family member not found" });
-      }
-
-      const allItems = await storage.getAllItems();
-      const familyMembersList = await storage.getFamilyMembersBySibling(sibling.id);
-      const suggestions = await storage.getSuggestionsBySibling(sibling.id);
-
-      res.json({
-        sibling: sanitizeSibling(sibling),
-        items: allItems.map(stripBlobFields),
-        familyMembers: familyMembersList,
-        suggestions,
-      });
-    } catch (error) {
-      res.status(500).json({ error: "Failed to fetch viewer data" });
-    }
-  });
-
-  app.post("/api/viewer/:siblingId/family-members", async (req, res) => {
-    try {
-      const sibling = await storage.getSibling(req.params.siblingId);
-      if (!sibling) {
-        return res.status(404).json({ error: "Family member not found" });
-      }
-
-      const { name } = req.body;
-      if (!name || typeof name !== "string" || name.trim().length === 0) {
-        return res.status(400).json({ error: "Name is required" });
-      }
-
-      const existingMembers = await storage.getFamilyMembersBySibling(sibling.id);
-      const existing = existingMembers.find(
-        (m) => m.name.toLowerCase() === name.trim().toLowerCase()
-      );
-
-      if (existing) {
-        return res.json(existing);
-      }
-
-      const member = await storage.createFamilyMember({
-        siblingId: sibling.id,
-        name: name.trim(),
-      });
-      res.json(member);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to register family member" });
-    }
-  });
-
-  app.post("/api/viewer/:siblingId/suggestions", async (req, res) => {
-    try {
-      const sibling = await storage.getSibling(req.params.siblingId);
-      if (!sibling) {
-        return res.status(404).json({ error: "Family member not found" });
-      }
-
-      const { familyMemberId, itemId, note } = req.body;
-      if (!familyMemberId || !itemId || !note || typeof note !== "string" || note.trim().length === 0) {
-        return res.status(400).json({ error: "Family member ID, item ID, and note are required" });
-      }
-
-      const member = await storage.getFamilyMember(familyMemberId);
-      if (!member || member.siblingId !== sibling.id) {
-        return res.status(403).json({ error: "Invalid family member" });
-      }
-
-      const suggestion = await storage.createFamilySuggestion({
-        familyMemberId,
-        siblingId: sibling.id,
-        itemId,
-        note: note.trim(),
-      });
-      res.json(suggestion);
-    } catch (error) {
-      res.status(500).json({ error: "Failed to add suggestion" });
-    }
-  });
-
-  app.delete("/api/viewer/:siblingId/suggestions/:id", async (req, res) => {
-    try {
-      const sibling = await storage.getSibling(req.params.siblingId);
-      if (!sibling) {
-        return res.status(404).json({ error: "Family member not found" });
-      }
-
-      await storage.deleteFamilySuggestion(req.params.id);
-      res.status(204).send();
-    } catch (error) {
-      res.status(500).json({ error: "Failed to remove suggestion" });
-    }
-  });
+  // NOTE: The old /api/viewer/:siblingId endpoints were removed. They had no
+  // auth and leaked items/family/suggestions to anyone who guessed a sibling
+  // UUID. Use /api/share/:token/* (shareToken-gated) instead.
 
   // ============ OWNER (APP OWNER BYPASS) ============
 
