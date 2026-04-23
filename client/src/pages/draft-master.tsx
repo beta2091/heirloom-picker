@@ -30,6 +30,7 @@ interface SiblingResponse {
   shareToken: string;
   color: string;
   hasPin: boolean;
+  optedOut: boolean;
 }
 
 export default function DraftMaster() {
@@ -87,6 +88,17 @@ export default function DraftMaster() {
   });
 
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
+
+  const optOutMutation = useMutation({
+    mutationFn: async (siblingId: string) => apiRequest("POST", `/api/siblings/${siblingId}/opt-out`, { adminPin }),
+    onSuccess: (_data, siblingId) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/siblings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/draft"] });
+      const who = siblings.find(s => s.id === siblingId);
+      toast({ title: `${who?.name || "Sibling"} opted out`, description: "Their remaining turns will be skipped." });
+    },
+    onError: () => toast({ title: "Couldn't opt out", variant: "destructive" }),
+  });
 
   const autoPickMutation = useMutation({
     mutationFn: async () => {
@@ -278,6 +290,20 @@ export default function DraftMaster() {
                         >
                           {autoPickMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
                           Auto-pick for {currentPicker.name}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            if (confirm(`Mark ${currentPicker.name} as done? Their future turns will be skipped and remaining picks go to donation.`)) {
+                              optOutMutation.mutate(currentPicker.id);
+                            }
+                          }}
+                          disabled={optOutMutation.isPending}
+                          data-testid="button-admin-opt-out"
+                        >
+                          {optOutMutation.isPending && <Loader2 className="w-3 h-3 mr-2 animate-spin" />}
+                          Mark {currentPicker.name} done (opt out)
                         </Button>
                         <div className="bg-primary/5 p-3 rounded-xl text-sm border shadow-sm">
                           <p className="font-medium text-primary mb-1 flex items-center gap-1"><Shield className="w-4 h-4"/> Admin Override</p>

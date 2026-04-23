@@ -13,6 +13,9 @@ export const siblings = pgTable("siblings", {
   pin: varchar("pin", { length: 4 }), // 4-digit PIN for private wishlist access
   wishlistSubmitted: boolean("wishlist_submitted").notNull().default(false),
   lotteryNumber: integer("lottery_number"),
+  // When a sibling is satisfied with their picks, they can opt out of the
+  // rest of the draft. Remaining items they'd have picked go to donation.
+  optedOut: boolean("opted_out").notNull().default(false),
 });
 
 export const insertSiblingSchema = createInsertSchema(siblings).omit({

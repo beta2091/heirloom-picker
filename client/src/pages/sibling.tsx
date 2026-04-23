@@ -38,6 +38,7 @@ interface SiblingResponse {
   color: string;
   hasPin: boolean;
   wishlistSubmitted: boolean;
+  optedOut: boolean;
 }
 
 interface DraftStateResponse {
@@ -195,6 +196,16 @@ export default function SiblingPage() {
     enabled: isVerified,
   });
 
+  const optOutMutation = useMutation({
+    mutationFn: async () => apiRequest("POST", `/api/siblings/${id}/opt-out`, authBody),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/siblings", id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/draft"] });
+      toast({ title: "You're done!", description: "Remaining items you'd have picked will go to donation." });
+    },
+    onError: (err: any) => toast({ title: "Couldn't opt out", description: err?.message || "Try again.", variant: "destructive" }),
+  });
+
   const [pickingItem, setPickingItem] = useState<ItemResponse | null>(null);
   const makePickMutation = useMutation({
     mutationFn: async (itemId: string) => apiRequest("POST", "/api/draft/pick", { itemId, shareToken }),
@@ -330,6 +341,14 @@ export default function SiblingPage() {
                 <p className="text-muted-foreground">Here's everything you picked:</p>
               </CardContent>
             </Card>
+          ) : sibling.optedOut ? (
+            <Card className="border-2 border-muted">
+              <CardContent className="py-6 space-y-2 text-center">
+                <Badge variant="secondary">Opted out</Badge>
+                <h2 className="font-serif text-xl font-semibold">You're done picking.</h2>
+                <p className="text-sm text-muted-foreground">Any remaining items you would have picked will go to donation. Thanks for letting the others know so the draft can keep moving.</p>
+              </CardContent>
+            </Card>
           ) : isMyTurn ? (
             <Card className="border-2 shadow-md animate-in fade-in slide-in-from-top-4" style={{ borderColor: sibling.color }}>
               <CardContent className="py-8 text-center space-y-3">
@@ -361,6 +380,26 @@ export default function SiblingPage() {
                 )}
               </CardContent>
             </Card>
+          )}
+
+          {draftState.isActive && !draftState.isComplete && !sibling.optedOut && (
+            <div className="flex justify-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground hover:text-foreground"
+                onClick={() => {
+                  if (confirm(`Are you done picking? Your future turns will be skipped and any items you would have picked will go to donation. This can't be undone without the admin resetting the draft.`)) {
+                    optOutMutation.mutate();
+                  }
+                }}
+                disabled={optOutMutation.isPending}
+                data-testid="button-opt-out"
+              >
+                {optOutMutation.isPending && <Loader2 className="w-3 h-3 mr-2 animate-spin" />}
+                I'm done picking — skip my remaining turns
+              </Button>
+            </div>
           )}
 
           {!draftState.isComplete && sortedUnpicked.length > 0 && (

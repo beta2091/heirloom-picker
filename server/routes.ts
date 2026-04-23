@@ -935,6 +935,45 @@ export async function registerRoutes(
     }
   });
 
+  // Opt out of remaining rounds. Auth: admin OR the sibling's own
+  // shareToken/pin. Once opted out, their future turns are skipped. If they
+  // opt out when it's currently their turn, the next active picker is
+  // advanced to immediately. If all remaining siblings are opted out, the
+  // draft is marked complete and remaining items go to donation.
+  app.post("/api/siblings/:id/opt-out", async (req, res) => {
+    try {
+      const { pin, shareToken, adminPin } = req.body;
+      const adminOk = !!adminPin && await verifyAdminPin(req);
+      const memberOk = await verifyWishlistAccess(req.params.id, pin, shareToken);
+      if (!adminOk && !memberOk) {
+        return res.status(401).json({ error: "Not authorized" });
+      }
+      const updated = await storage.updateSibling(req.params.id, { optedOut: true });
+      if (!updated) return res.status(404).json({ error: "Sibling not found" });
+
+      // If the draft is live, advance past this sibling if they were on the
+      // clock, and mark complete if nobody active is left.
+      const draftState = await storage.getDraftState();
+      if (draftState?.isActive) {
+        const all = await storage.getAllSiblings();
+        const sorted = all.filter(s => (s.draftOrder || 0) > 0).sort((a, b) => a.draftOrder - b.draftOrder);
+        if (sorted.length > 0) {
+          const advanced = nextActivePickIdx(draftState.currentPickIndex, sorted);
+          if (advanced === null) {
+            await storage.createOrUpdateDraftState({ isActive: false, isComplete: true });
+          } else if (advanced !== draftState.currentPickIndex) {
+            const nextRound = Math.floor(advanced / sorted.length) + 1;
+            await storage.createOrUpdateDraftState({ currentPickIndex: advanced, currentRound: nextRound });
+          }
+        }
+      }
+
+      res.json(sanitizeSibling(updated));
+    } catch (error) {
+      res.status(500).json({ error: "Failed to opt out" });
+    }
+  });
+
   // ============ LOTTERY ============
 
   app.get("/api/lottery", async (req, res) => {
@@ -1094,6 +1133,24 @@ export async function registerRoutes(
     return round % 2 === 0 ? posInRound : n - 1 - posInRound;
   };
 
+  // Walks pickIndex forward until it lands on a non-opted-out sibling.
+  // Returns null if every sibling is opted out (no active pickers left).
+  // Used after a pick to skip past any siblings who have said "I'm done."
+  const nextActivePickIdx = (pickIdx: number, sorted: any[]): number | null => {
+    const n = sorted.length;
+    if (n === 0) return null;
+    if (sorted.every(s => s.optedOut)) return null;
+    let idx = pickIdx;
+    // Since at least one picker is active, this terminates in at most n steps.
+    let safety = n + 1;
+    while (safety-- > 0) {
+      const picker = sorted[pickerForIndex(idx, n)];
+      if (!picker.optedOut) return idx;
+      idx++;
+    }
+    return null;
+  };
+
   // Start draft (admin only). Preserves an existing lottery-assigned order;
   // only randomizes if no order has been set yet.
   app.post("/api/draft/start", async (req, res) => {
@@ -1129,6 +1186,11 @@ export async function registerRoutes(
         for (let i = 0; i < shuffled.length; i++) {
           await storage.updateSibling(shuffled[i].id, { draftOrder: maxOrder + i + 1 });
         }
+      }
+
+      // Fresh draft: clear any stale opt-out flags so everyone starts in.
+      for (const s of allSiblings) {
+        if (s.optedOut) await storage.updateSibling(s.id, { optedOut: false });
       }
 
       const state = await storage.createOrUpdateDraftState({
@@ -1174,11 +1236,12 @@ export async function registerRoutes(
 
       await storage.resetDraft();
 
-      if (!keepOrder) {
-        const allSiblings = await storage.getAllSiblings();
-        for (const sib of allSiblings) {
-          await storage.updateSibling(sib.id, { draftOrder: 0 });
-        }
+      // Always clear opt-out flags on reset — a new draft is a clean slate.
+      const allSiblings = await storage.getAllSiblings();
+      for (const sib of allSiblings) {
+        const updates: Record<string, any> = { optedOut: false };
+        if (!keepOrder) updates.draftOrder = 0;
+        await storage.updateSibling(sib.id, updates);
       }
 
       const state = await storage.getDraftState();
@@ -1232,12 +1295,19 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Item not found" });
       }
 
-      // Pre-compute what the next state should look like
-      const nextPickIndex = draftState.currentPickIndex + 1;
-      const nextRound = Math.floor(nextPickIndex / sortedSiblings.length) + 1;
+      // Pre-compute what the next state should look like.
+      // Advance past any opted-out siblings so the next turn lands on
+      // someone who's still drafting. If everyone who's left has opted out,
+      // treat the draft as complete (remaining items → donation).
+      const rawNextPickIndex = draftState.currentPickIndex + 1;
       const allItems = await storage.getAllItems();
       const unpickedItems = allItems.filter(i => !i.pickedBySiblingId && i.id !== itemId);
-      const isComplete = unpickedItems.length === 0;
+      const itemsDoneAfter = unpickedItems.length === 0;
+      const advanced = nextActivePickIdx(rawNextPickIndex, sortedSiblings);
+      const nextPickIndex = advanced !== null ? advanced : rawNextPickIndex;
+      const nextRound = Math.floor(nextPickIndex / sortedSiblings.length) + 1;
+      // Complete when: no items left, OR no active siblings remain.
+      const isComplete = itemsDoneAfter || advanced === null;
 
       // Atomic: claim the item and advance the draft in one transaction,
       // gated on the currentPickIndex NOT having moved since we read it.
@@ -1307,10 +1377,12 @@ export async function registerRoutes(
 
       const chosen = candidates[0];
       const chosenItem = allItems.find(i => i.id === chosen.itemId);
-      const nextPickIndex = state.currentPickIndex + 1;
+      const rawNextPickIndex = state.currentPickIndex + 1;
+      const advanced = nextActivePickIdx(rawNextPickIndex, sorted);
+      const nextPickIndex = advanced !== null ? advanced : rawNextPickIndex;
       const nextRound = Math.floor(nextPickIndex / sorted.length) + 1;
       const remaining = allItems.filter(i => !i.pickedBySiblingId && i.id !== chosen.itemId);
-      const isComplete = remaining.length === 0;
+      const isComplete = remaining.length === 0 || advanced === null;
 
       const result = await storage.atomicPick({
         itemId: chosen.itemId,

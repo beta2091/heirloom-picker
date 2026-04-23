@@ -15,8 +15,11 @@ const statements = [
     color TEXT NOT NULL DEFAULT '#6366f1',
     pin VARCHAR(64),
     wishlist_submitted BOOLEAN NOT NULL DEFAULT false,
-    lottery_number INTEGER
+    lottery_number INTEGER,
+    opted_out BOOLEAN NOT NULL DEFAULT false
   )`,
+  // Add opted_out column for existing deployments where siblings table already exists
+  sql`ALTER TABLE siblings ADD COLUMN IF NOT EXISTS opted_out BOOLEAN NOT NULL DEFAULT false`,
   sql`CREATE TABLE IF NOT EXISTS items (
     id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
