@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Trophy, Loader2, Image as ImageIcon, Volume2, Heart } from "lucide-react";
+import { ArrowLeft, Trophy, Loader2, Image as ImageIcon, Volume2, Heart, Download } from "lucide-react";
 import { getInitials } from "@/lib/utils-initials";
 
 interface ItemResponse {
@@ -38,6 +38,46 @@ export default function Results() {
   const pickedItems = items.filter(item => item.pickedBySiblingId);
   const unpickedItems = items.filter(item => !item.pickedBySiblingId);
 
+  const csvEscape = (v: string | number | null | undefined) => {
+    const s = v == null ? "" : String(v);
+    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+
+  const downloadCsv = (filename: string, rows: (string | number | null | undefined)[][]) => {
+    const csv = rows.map(r => r.map(csvEscape).join(",")).join("\n");
+    const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadAll = () => {
+    const rows: (string | number | null | undefined)[][] = [["Sibling", "Round", "Item", "Description"]];
+    siblings.forEach(sib => {
+      const picks = pickedItems
+        .filter(i => i.pickedBySiblingId === sib.id)
+        .sort((a, b) => (a.pickRound || 0) - (b.pickRound || 0));
+      picks.forEach(p => rows.push([sib.name, p.pickRound ?? "", p.name, p.description ?? ""]));
+    });
+    unpickedItems.forEach(i => rows.push(["(unpicked / donation)", "", i.name, i.description ?? ""]));
+    downloadCsv(`heirloom-draft-results-${new Date().toISOString().slice(0, 10)}.csv`, rows);
+  };
+
+  const handleDownloadSibling = (sibling: SiblingResponse) => {
+    const picks = pickedItems
+      .filter(i => i.pickedBySiblingId === sibling.id)
+      .sort((a, b) => (a.pickRound || 0) - (b.pickRound || 0));
+    const rows: (string | number | null | undefined)[][] = [["Round", "Item", "Description"]];
+    picks.forEach(p => rows.push([p.pickRound ?? "", p.name, p.description ?? ""]));
+    const slug = sibling.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    downloadCsv(`${slug}-picks-${new Date().toISOString().slice(0, 10)}.csv`, rows);
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -62,6 +102,11 @@ export default function Results() {
             <span className="font-serif text-xl font-semibold">Draft Results</span>
           </div>
           <div className="flex items-center gap-2">
+            {pickedItems.length > 0 && (
+              <Button variant="outline" onClick={handleDownloadAll} data-testid="button-download-all">
+                <Download className="w-4 h-4 mr-2" /> Download CSV
+              </Button>
+            )}
             <Link href="/draft">
               <Button variant="outline" data-testid="link-to-draft">
                 Draft Board
@@ -131,6 +176,15 @@ export default function Results() {
                     </div>
                     <h2 className="font-serif text-xl font-semibold">{sibling.name}'s Items</h2>
                     <Badge variant="secondary">{siblingItems.length}</Badge>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="ml-auto"
+                      onClick={() => handleDownloadSibling(sibling)}
+                      data-testid={`button-download-${sibling.id}`}
+                    >
+                      <Download className="w-4 h-4 mr-2" /> CSV
+                    </Button>
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {siblingItems.map((item) => (

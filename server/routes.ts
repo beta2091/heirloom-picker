@@ -909,12 +909,9 @@ export async function registerRoutes(
       if (!(await verifyWishlistAccess(req.params.id, pin, shareToken))) {
         return res.status(401).json({ error: "PIN required", requiresPin: true });
       }
-      const allItems = await storage.getAllItems();
-      const availableItems = allItems.filter(i => !i.pickedBySiblingId);
-      const ratings = await storage.getRatingsBySibling(req.params.id);
-      if (ratings.length < availableItems.length) {
-        return res.status(400).json({ error: "You must rate all available items before submitting" });
-      }
+      // No minimum-ratings gate. Unrated items are treated as lowest priority
+      // during auto-pick. Siblings who don't want everything can submit with
+      // a partial list and ignore items they don't care about.
       const updated = await storage.updateSibling(req.params.id, { wishlistSubmitted: true });
       res.json(updated);
     } catch (error) {

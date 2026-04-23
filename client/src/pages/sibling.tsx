@@ -182,6 +182,7 @@ export default function SiblingPage() {
   const submitWishlistMutation = useMutation({
     mutationFn: async () => apiRequest("POST", `/api/siblings/${id}/submit-wishlist`, authBody),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/siblings", id] }); toast({ title: "Rankings submitted!", description: "Your picks are locked in." }); },
+    onError: (err: any) => toast({ title: "Couldn't submit", description: err?.message || "Try again.", variant: "destructive" }),
   });
   const unlockWishlistMutation = useMutation({
     mutationFn: async () => apiRequest("POST", `/api/siblings/${id}/unlock-wishlist`, authBody),
