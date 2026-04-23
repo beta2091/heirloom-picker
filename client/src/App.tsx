@@ -11,7 +11,6 @@ import Draft from "@/pages/draft";
 import DraftMaster from "@/pages/draft-master";
 import Results from "@/pages/results";
 import OwnerPage from "@/pages/owner";
-import LotteryPage from "@/pages/lottery";
 import JoinPage from "@/pages/join";
 
 function Router() {
@@ -24,7 +23,6 @@ function Router() {
       <Route path="/draft-master" component={DraftMaster} />
       <Route path="/results" component={Results} />
       <Route path="/owner" component={OwnerPage} />
-      <Route path="/lottery" component={LotteryPage} />
       <Route path="/join/:token" component={JoinPage} />
       <Route component={NotFound} />
     </Switch>

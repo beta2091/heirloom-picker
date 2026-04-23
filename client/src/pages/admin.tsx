@@ -122,11 +122,6 @@ function AdminDashboard({ verifiedPin }: { verifiedPin: string }) {
               </div>
             )}
             <div className="space-y-2">
-              <Link href="/lottery">
-                <Button size="lg" variant="outline" className="w-full gap-2">
-                  Draft Lottery (pick order) <ExternalLink className="w-4 h-4" />
-                </Button>
-              </Link>
               <Link href="/draft-master">
                 <Button size="lg" className="w-full gap-2">
                   Open Master Draft View <ExternalLink className="w-4 h-4" />
@@ -400,6 +395,12 @@ export default function Admin() {
     mutationFn: async (data: { id: string; name?: string; color?: string; pin?: string | null }) => apiRequest("PUT", `/api/siblings/${data.id}`, { name: data.name, color: data.color, pin: data.pin, adminPin }),
     onSuccess: () => { invalidateSiblings(); setEditSiblingDialogOpen(false); setEditingSibling(null); toast({ title: "Family member updated" }); },
     onError: () => toast({ title: "Failed to update family member", variant: "destructive" }),
+  });
+
+  const updateDraftOrderMutation = useMutation({
+    mutationFn: async (data: { id: string; draftOrder: number }) => apiRequest("PUT", `/api/siblings/${data.id}`, { draftOrder: data.draftOrder, adminPin }),
+    onSuccess: () => invalidateSiblings(),
+    onError: () => toast({ title: "Failed to update draft order", variant: "destructive" }),
   });
 
   const addItemMutation = useMutation({
@@ -710,9 +711,28 @@ export default function Admin() {
                           <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shrink-0" style={{ backgroundColor: sibling.color }}>{getInitials(sibling.name)}</div>
                           <div className="flex-1 min-w-0">
                             <h3 className="font-semibold truncate">{sibling.name}</h3>
-                            <p className="text-sm text-muted-foreground">{sibling.draftOrder > 0 ? `Pick #${sibling.draftOrder}` : "Draft order assigned at start"}</p>
+                            <p className="text-sm text-muted-foreground">{sibling.draftOrder > 0 ? `Pick #${sibling.draftOrder}` : "No pick order set"}</p>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex items-center gap-1">
+                              <label htmlFor={`draft-order-${sibling.id}`} className="text-xs text-muted-foreground">Pick #</label>
+                              <Input
+                                id={`draft-order-${sibling.id}`}
+                                type="number"
+                                min={0}
+                                max={siblings.length}
+                                defaultValue={sibling.draftOrder || ""}
+                                onBlur={(e) => {
+                                  const val = parseInt(e.target.value, 10);
+                                  const next = Number.isFinite(val) && val >= 0 ? val : 0;
+                                  if (next !== (sibling.draftOrder || 0)) updateDraftOrderMutation.mutate({ id: sibling.id, draftOrder: next });
+                                }}
+                                onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                                className="w-16 h-8 text-center"
+                                title="Draft pick order (1 = first). Leave 0 for unset."
+                                data-testid={`input-draft-order-${sibling.id}`}
+                              />
+                            </div>
                             {sibling.hasPin && <Badge variant="secondary" className="gap-1"><Lock className="w-3 h-3" /> PIN</Badge>}
                             <Button variant="ghost" size="icon" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/join/${sibling.shareToken}`); toast({ title: "Link copied!", description: `Share link for ${sibling.name}` }); }} title="Copy share link" data-testid={`button-copy-link-${sibling.id}`}><Link2 className="w-4 h-4" /></Button>
                             <Button variant="ghost" size="icon" onClick={() => { if (confirm(`Rotate ${sibling.name}'s link? The old link will stop working immediately. The new link will be copied to your clipboard.`)) rotateTokenMutation.mutate(sibling.id); }} disabled={rotateTokenMutation.isPending} title="Rotate share link (invalidates old link)" data-testid={`button-rotate-link-${sibling.id}`}><RefreshCcw className="w-4 h-4" /></Button>
