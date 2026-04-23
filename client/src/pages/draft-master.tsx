@@ -88,6 +88,22 @@ export default function DraftMaster() {
 
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
 
+  const autoPickMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/draft/autopick", { adminPin });
+      return res.json();
+    },
+    onSuccess: (data: { state: DraftState; pickedItem: { id: string; name: string }; pickerName: string }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/draft"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/items"] });
+      toast({ title: `Auto-picked for ${data.pickerName}`, description: data.pickedItem.name });
+    },
+    onError: async (err: any) => {
+      const msg = err?.message || "Auto-pick failed";
+      toast({ title: "Auto-pick failed", description: msg, variant: "destructive" });
+    },
+  });
+
   const makePickMutation = useMutation({
     mutationFn: async (itemId: string) => {
       return apiRequest("POST", "/api/draft/pick", { itemId, adminPin });
@@ -250,9 +266,23 @@ export default function DraftMaster() {
                           </p>
                         </div>
                       </div>
-                      <div className="bg-primary/5 p-4 rounded-xl max-w-xs text-sm border shadow-sm">
-                        <p className="font-medium text-primary mb-1 flex items-center gap-1"><Shield className="w-4 h-4"/> Admin Override</p>
-                        <p className="text-muted-foreground">If {currentPicker.name} calls out a pick over Zoom, you can click any available item below to log it for them.</p>
+                      <div className="flex flex-col gap-3 max-w-xs">
+                        <Button
+                          size="lg"
+                          variant="default"
+                          onClick={() => autoPickMutation.mutate()}
+                          disabled={autoPickMutation.isPending}
+                          className="gap-2"
+                          data-testid="button-autopick"
+                          title={`Pick ${currentPicker.name}'s highest-ranked available item automatically`}
+                        >
+                          {autoPickMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
+                          Auto-pick for {currentPicker.name}
+                        </Button>
+                        <div className="bg-primary/5 p-3 rounded-xl text-sm border shadow-sm">
+                          <p className="font-medium text-primary mb-1 flex items-center gap-1"><Shield className="w-4 h-4"/> Admin Override</p>
+                          <p className="text-muted-foreground">Auto-pick uses their wishlist. Or click any item below to log a manual pick.</p>
+                        </div>
                       </div>
                     </div>
                   </CardContent>

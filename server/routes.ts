@@ -1271,6 +1271,78 @@ export async function registerRoutes(
     }
   });
 
+  // Auto-pick (admin only). For the current picker, finds the highest-ranked
+  // item they've rated that is still available, and picks it on their behalf.
+  // Useful when a sibling can't be on the call and you're running it for them.
+  // Ranking order: rating DESC (5★ → 1★), then rankWithinTier ASC.
+  // Falls back to 400 if the sibling has no rated items left — admin should
+  // pick manually in that case.
+  app.post("/api/draft/autopick", async (req, res) => {
+    try {
+      if (!(await verifyAdminPin(req))) {
+        return res.status(401).json({ error: "Admin PIN required" });
+      }
+      const state = await storage.getDraftState();
+      if (!state || !state.isActive) {
+        return res.status(400).json({ error: "Draft is not active" });
+      }
+      const all = await storage.getAllSiblings();
+      const sorted = all.filter(s => (s.draftOrder || 0) > 0).sort((a, b) => a.draftOrder - b.draftOrder);
+      if (sorted.length === 0) return res.status(400).json({ error: "No siblings in draft" });
+      const picker = sorted[pickerForIndex(state.currentPickIndex, sorted.length)];
+
+      const ratings = await storage.getRatingsBySibling(picker.id);
+      const allItems = await storage.getAllItems();
+      const availableIds = new Set(allItems.filter(i => !i.pickedBySiblingId).map(i => i.id));
+      const candidates = ratings
+        .filter(r => availableIds.has(r.itemId))
+        .sort((a, b) => b.rating !== a.rating ? b.rating - a.rating : a.rankWithinTier - b.rankWithinTier);
+
+      if (candidates.length === 0) {
+        return res.status(400).json({
+          error: `${picker.name} has no ranked items left. Pick manually.`,
+          pickerName: picker.name,
+        });
+      }
+
+      const chosen = candidates[0];
+      const chosenItem = allItems.find(i => i.id === chosen.itemId);
+      const nextPickIndex = state.currentPickIndex + 1;
+      const nextRound = Math.floor(nextPickIndex / sorted.length) + 1;
+      const remaining = allItems.filter(i => !i.pickedBySiblingId && i.id !== chosen.itemId);
+      const isComplete = remaining.length === 0;
+
+      const result = await storage.atomicPick({
+        itemId: chosen.itemId,
+        siblingId: picker.id,
+        expectedPickIndex: state.currentPickIndex,
+        pickRound: state.currentRound,
+        nextPickIndex,
+        nextRound,
+        isComplete,
+        isActive: !isComplete,
+      });
+
+      if (!result.ok) {
+        if (result.reason === "already_picked") {
+          return res.status(409).json({ error: "Item was already picked. Refresh and try again." });
+        }
+        if (result.reason === "race") {
+          return res.status(409).json({ error: "Someone else just picked. Refresh and try again." });
+        }
+        return res.status(400).json({ error: "Draft is not active" });
+      }
+
+      res.json({
+        state: result.state,
+        pickedItem: { id: chosen.itemId, name: chosenItem?.name || "" },
+        pickerName: picker.name,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to auto-pick" });
+    }
+  });
+
   // ============ SHARE ============
 
   // Resolve a share token to a sibling ID (lightweight, for join links)
