@@ -62,6 +62,7 @@ export default function DraftMaster() {
       queryClient.invalidateQueries({ queryKey: ["/api/siblings"] });
       toast({ title: "Draft started!" });
     },
+    onError: (err: any) => toast({ title: "Couldn't start draft", description: err?.message || "Check draft order and try again.", variant: "destructive" }),
   });
 
   const pauseDraftMutation = useMutation({

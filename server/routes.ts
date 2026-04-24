@@ -557,6 +557,15 @@ export async function registerRoutes(
       if (!(await verifyAdminPin(req))) {
         return res.status(401).json({ error: "Admin PIN required" });
       }
+      // Guard: don't allow deleting a sibling during an active, incomplete draft.
+      // The draft's currentPickIndex depends on the sibling array shape; deleting
+      // mid-draft corrupts turn order. Pause + reset first if you really need to.
+      const state = await storage.getDraftState();
+      if (state?.isActive && !state?.isComplete) {
+        return res.status(400).json({
+          error: "Can't delete a sibling during an active draft. Pause the draft first.",
+        });
+      }
       await storage.deleteSibling(req.params.id);
       res.status(204).send();
     } catch (error) {
@@ -1158,6 +1167,18 @@ export async function registerRoutes(
       const allSiblings = await storage.getAllSiblings();
       if (allSiblings.length === 0) {
         return res.status(400).json({ error: "No family members to draft" });
+      }
+
+      // Guard: if any siblings have a draftOrder, they must all have one and
+      // the values must be unique. Prevents silent breakage from a typo in
+      // the admin draft-order inputs.
+      const assignedOrders = allSiblings.map(s => s.draftOrder || 0).filter(o => o > 0);
+      const uniqueOrders = new Set(assignedOrders);
+      if (assignedOrders.length !== uniqueOrders.size) {
+        const dupes = Array.from(new Set(assignedOrders.filter((v, i, a) => a.indexOf(v) !== i)));
+        return res.status(400).json({
+          error: `Duplicate draft order numbers: ${dupes.join(", ")}. Each sibling needs a unique position.`,
+        });
       }
 
       // Preserve any existing lottery-assigned order. Only assign new
