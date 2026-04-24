@@ -208,8 +208,35 @@ export function AdminPinGate({ children, title = "Admin Access", description = "
     return children;
   };
 
+  // On mount, if a PIN was verified in another page this session, auto-verify
+  // here instead of forcing a re-prompt or redirect. This is what makes
+  // "Go to Draft" work after unlocking admin.
+  useEffect(() => {
+    if (isVerified) return;
+    const stashed = sessionStorage.getItem("admin-pin");
+    if (!stashed || stashed.length !== 4) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await apiRequest("POST", "/api/admin/verify-pin", { pin: stashed });
+        const data = await response.json();
+        if (!cancelled && data.verified) {
+          setIsVerified(true);
+          setVerifiedPin(stashed);
+        }
+      } catch {
+        // fall through to normal gate UI
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isVerified]);
+
   useEffect(() => {
     if (!isLoading && redirectTo && !isVerified) {
+      // Give the auto-verify effect above a tick to resolve before redirecting.
+      // Only bounce after we've confirmed there's no usable session PIN.
+      const stashed = sessionStorage.getItem("admin-pin");
+      if (stashed && stashed.length === 4) return;
       setLocation(redirectTo);
     }
   }, [isLoading, redirectTo, isVerified, setLocation]);
