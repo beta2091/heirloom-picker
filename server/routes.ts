@@ -699,6 +699,48 @@ export async function registerRoutes(
     }
   });
 
+  // Manually assign an item to a sibling (admin only). Works whether the
+  // draft is active, complete, or not started — for fixing up donations or
+  // late additions after the live draft. Does NOT advance draft state.
+  // Body: { adminPin, siblingId, pickRound? }
+  app.post("/api/items/:id/assign", async (req, res) => {
+    try {
+      if (!(await verifyAdminPin(req))) {
+        return res.status(401).json({ error: "Admin PIN required" });
+      }
+      const { siblingId, pickRound } = req.body as { siblingId?: string; pickRound?: number };
+      if (!siblingId) return res.status(400).json({ error: "siblingId required" });
+      const sibling = await storage.getSibling(siblingId);
+      if (!sibling) return res.status(404).json({ error: "Sibling not found" });
+      const item = await storage.getItem(req.params.id);
+      if (!item) return res.status(404).json({ error: "Item not found" });
+      const updated = await storage.updateItem(req.params.id, {
+        pickedBySiblingId: siblingId,
+        pickRound: typeof pickRound === "number" ? pickRound : (item.pickRound ?? 99),
+      });
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to assign item" });
+    }
+  });
+
+  // Un-assign an item — moves it back to the donation/unpicked pool.
+  // Body: { adminPin }
+  app.post("/api/items/:id/unassign", async (req, res) => {
+    try {
+      if (!(await verifyAdminPin(req))) {
+        return res.status(401).json({ error: "Admin PIN required" });
+      }
+      const updated = await storage.updateItem(req.params.id, {
+        pickedBySiblingId: null,
+        pickRound: null,
+      });
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to unassign item" });
+    }
+  });
+
   // Delete item
   app.delete("/api/items/:id", async (req, res) => {
     try {

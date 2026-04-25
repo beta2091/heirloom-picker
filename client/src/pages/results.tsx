@@ -1,10 +1,15 @@
+import { useState } from "react";
 import { Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Trophy, Loader2, Image as ImageIcon, Volume2, Heart, Download } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ArrowLeft, Trophy, Loader2, Image as ImageIcon, Volume2, Heart, Download, Image as Img, Undo2 } from "lucide-react";
 import { getInitials } from "@/lib/utils-initials";
+import JSZip from "jszip";
 
 interface ItemResponse {
   id: string;
@@ -26,12 +31,38 @@ interface SiblingResponse {
 }
 
 export default function Results() {
+  const { toast } = useToast();
+  const [zipBusy, setZipBusy] = useState<string | null>(null);
+  const [assignDraft, setAssignDraft] = useState<Record<string, string>>({});
+  const adminPin = typeof window !== "undefined" ? sessionStorage.getItem("admin-pin") || "" : "";
+
   const { data: siblings = [], isLoading: siblingsLoading } = useQuery<SiblingResponse[]>({
     queryKey: ["/api/siblings"],
   });
 
   const { data: items = [], isLoading: itemsLoading } = useQuery<ItemResponse[]>({
     queryKey: ["/api/items"],
+  });
+
+  const assignMutation = useMutation({
+    mutationFn: async ({ itemId, siblingId }: { itemId: string; siblingId: string }) =>
+      apiRequest("POST", `/api/items/${itemId}/assign`, { adminPin, siblingId }),
+    onSuccess: (_d, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/items"] });
+      const who = siblings.find(s => s.id === vars.siblingId);
+      toast({ title: "Item assigned", description: who ? `Added to ${who.name}'s picks` : undefined });
+    },
+    onError: (err: any) => toast({ title: "Couldn't assign", description: err?.message || "Admin PIN required.", variant: "destructive" }),
+  });
+
+  const unassignMutation = useMutation({
+    mutationFn: async (itemId: string) =>
+      apiRequest("POST", `/api/items/${itemId}/unassign`, { adminPin }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/items"] });
+      toast({ title: "Item moved back to donation pool" });
+    },
+    onError: (err: any) => toast({ title: "Couldn't unassign", description: err?.message || "Admin PIN required.", variant: "destructive" }),
   });
 
   const isLoading = siblingsLoading || itemsLoading;
@@ -78,6 +109,97 @@ export default function Results() {
     downloadCsv(`${slug}-picks-${new Date().toISOString().slice(0, 10)}.csv`, rows);
   };
 
+  // Slugify an item name into a safe-for-filesystem stem.
+  const fileSlug = (s: string) => s.replace(/[\\/:*?"<>|\n\r\t]+/g, "-").replace(/\s+/g, "_").slice(0, 80);
+
+  // Fetch the image for an item, return { blob, ext } or null if no image.
+  const fetchItemImage = async (itemId: string): Promise<{ blob: Blob; ext: string } | null> => {
+    const res = await fetch(`/api/items/${itemId}/image`);
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const type = blob.type || "image/jpeg";
+    const ext = type.includes("png") ? "png" : type.includes("gif") ? "gif" : type.includes("webp") ? "webp" : "jpg";
+    return { blob, ext };
+  };
+
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleDownloadSiblingImages = async (sibling: SiblingResponse) => {
+    const picks = pickedItems
+      .filter(i => i.pickedBySiblingId === sibling.id && i.hasImage)
+      .sort((a, b) => (a.pickRound || 0) - (b.pickRound || 0));
+    if (picks.length === 0) {
+      toast({ title: "No images", description: `${sibling.name}'s items don't have photos attached.` });
+      return;
+    }
+    setZipBusy(sibling.id);
+    try {
+      const zip = new JSZip();
+      const folder = zip.folder(sibling.name) || zip;
+      // CSV manifest inside the zip so they know what's what.
+      const manifest: string[] = ["Round,Item,Description,File"];
+      let i = 1;
+      for (const p of picks) {
+        const img = await fetchItemImage(p.id);
+        const stem = `${String(p.pickRound ?? i).padStart(2, "0")}-${fileSlug(p.name)}`;
+        if (img) {
+          folder.file(`${stem}.${img.ext}`, img.blob);
+          manifest.push([p.pickRound ?? "", p.name, p.description ?? "", `${stem}.${img.ext}`]
+            .map(v => /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v)).join(","));
+        } else {
+          manifest.push([p.pickRound ?? "", p.name, p.description ?? "", "(no image)"]
+            .map(v => /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v)).join(","));
+        }
+        i++;
+      }
+      folder.file("picks.csv", manifest.join("\n"));
+      const blob = await zip.generateAsync({ type: "blob" });
+      const slug = sibling.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      downloadBlob(blob, `${slug}-picks-${new Date().toISOString().slice(0, 10)}.zip`);
+      toast({ title: `Downloaded ${sibling.name}'s photos` });
+    } catch (e: any) {
+      toast({ title: "Image download failed", description: e?.message || "Try again.", variant: "destructive" });
+    } finally {
+      setZipBusy(null);
+    }
+  };
+
+  const handleDownloadAllImages = async () => {
+    setZipBusy("__all__");
+    try {
+      const zip = new JSZip();
+      for (const sib of siblings) {
+        const picks = pickedItems
+          .filter(i => i.pickedBySiblingId === sib.id && i.hasImage)
+          .sort((a, b) => (a.pickRound || 0) - (b.pickRound || 0));
+        if (picks.length === 0) continue;
+        const folder = zip.folder(sib.name)!;
+        for (const p of picks) {
+          const img = await fetchItemImage(p.id);
+          if (!img) continue;
+          const stem = `${String(p.pickRound ?? "").padStart(2, "0")}-${fileSlug(p.name)}`;
+          folder.file(`${stem}.${img.ext}`, img.blob);
+        }
+      }
+      const blob = await zip.generateAsync({ type: "blob" });
+      downloadBlob(blob, `heirloom-draft-photos-${new Date().toISOString().slice(0, 10)}.zip`);
+      toast({ title: "Downloaded photos for everyone" });
+    } catch (e: any) {
+      toast({ title: "Image download failed", description: e?.message || "Try again.", variant: "destructive" });
+    } finally {
+      setZipBusy(null);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -101,11 +223,17 @@ export default function Results() {
             </div>
             <span className="font-serif text-xl font-semibold">Draft Results</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {pickedItems.length > 0 && (
-              <Button variant="outline" onClick={handleDownloadAll} data-testid="button-download-all">
-                <Download className="w-4 h-4 mr-2" /> Download CSV
-              </Button>
+              <>
+                <Button variant="outline" onClick={handleDownloadAll} data-testid="button-download-all">
+                  <Download className="w-4 h-4 mr-2" /> Download CSV
+                </Button>
+                <Button variant="outline" onClick={handleDownloadAllImages} disabled={zipBusy !== null} data-testid="button-download-all-images">
+                  {zipBusy === "__all__" ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Img className="w-4 h-4 mr-2" />}
+                  Download All Photos (ZIP)
+                </Button>
+              </>
             )}
             <Link href="/draft">
               <Button variant="outline" data-testid="link-to-draft">
@@ -176,15 +304,26 @@ export default function Results() {
                     </div>
                     <h2 className="font-serif text-xl font-semibold">{sibling.name}'s Items</h2>
                     <Badge variant="secondary">{siblingItems.length}</Badge>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="ml-auto"
-                      onClick={() => handleDownloadSibling(sibling)}
-                      data-testid={`button-download-${sibling.id}`}
-                    >
-                      <Download className="w-4 h-4 mr-2" /> CSV
-                    </Button>
+                    <div className="ml-auto flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDownloadSibling(sibling)}
+                        data-testid={`button-download-${sibling.id}`}
+                      >
+                        <Download className="w-4 h-4 mr-2" /> CSV
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDownloadSiblingImages(sibling)}
+                        disabled={zipBusy !== null}
+                        data-testid={`button-download-images-${sibling.id}`}
+                      >
+                        {zipBusy === sibling.id ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Img className="w-4 h-4 mr-2" />}
+                        Photos
+                      </Button>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {siblingItems.map((item) => (
@@ -228,6 +367,16 @@ export default function Results() {
                               Your browser does not support audio playback.
                             </audio>
                           )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full mt-2 h-7 text-xs"
+                            onClick={() => unassignMutation.mutate(item.id)}
+                            disabled={unassignMutation.isPending}
+                            data-testid={`button-unassign-${item.id}`}
+                          >
+                            <Undo2 className="w-3 h-3 mr-1" /> Move back to pool
+                          </Button>
                         </CardContent>
                       </Card>
                     ))}
@@ -241,9 +390,12 @@ export default function Results() {
                 <h2 className="font-serif text-xl font-semibold mb-4 text-muted-foreground">
                   Remaining Items ({unpickedItems.length})
                 </h2>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Use the dropdown below any item to assign it to a sibling after the live draft.
+                </p>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {unpickedItems.map((item) => (
-                    <Card key={item.id} className="overflow-hidden opacity-60" data-testid={`result-unpicked-${item.id}`}>
+                    <Card key={item.id} className="overflow-hidden" data-testid={`result-unpicked-${item.id}`}>
                       <div className="aspect-square bg-muted relative">
                         {item.hasImage ? (
                           <img
@@ -258,8 +410,36 @@ export default function Results() {
                           </div>
                         )}
                       </div>
-                      <CardContent className="p-3">
+                      <CardContent className="p-3 space-y-2">
                         <h3 className="font-medium text-sm truncate">{item.name}</h3>
+                        <Select
+                          value={assignDraft[item.id] || ""}
+                          onValueChange={(v) => setAssignDraft(prev => ({ ...prev, [item.id]: v }))}
+                        >
+                          <SelectTrigger className="h-8 text-xs" data-testid={`assign-select-${item.id}`}>
+                            <SelectValue placeholder="Assign to..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {siblings.map(s => (
+                              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          size="sm"
+                          variant="default"
+                          className="w-full h-7 text-xs"
+                          disabled={!assignDraft[item.id] || assignMutation.isPending}
+                          onClick={() => {
+                            const siblingId = assignDraft[item.id];
+                            if (!siblingId) return;
+                            assignMutation.mutate({ itemId: item.id, siblingId });
+                            setAssignDraft(prev => { const next = { ...prev }; delete next[item.id]; return next; });
+                          }}
+                          data-testid={`assign-btn-${item.id}`}
+                        >
+                          Assign
+                        </Button>
                       </CardContent>
                     </Card>
                   ))}
