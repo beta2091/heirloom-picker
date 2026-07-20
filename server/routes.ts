@@ -7,6 +7,7 @@ import { z } from "zod";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { currentEstateId } from "./tenant";
 import { requireOrganizer } from "./auth";
+import { emailEnabled, sendEmail, buildInviteEmail } from "./email";
 import {
   createOrganizer,
   getOrganizerByEmail,
@@ -635,7 +636,9 @@ export async function registerRoutes(
   // Public-safe sanitizer: strips pin AND shareToken so public endpoints
   // never leak private tokens that would let anyone impersonate a sibling.
   const sanitizeSibling = (sibling: any) => {
-    const { pin, shareToken, ...rest } = sibling;
+    // Strip private/organizer-only fields so the public participant API never
+    // leaks another person's email, invite status, PIN, or share token.
+    const { pin, shareToken, email, invitedAt, ...rest } = sibling;
     return { ...rest, hasPin: !!pin };
   };
 
@@ -724,6 +727,7 @@ export async function registerRoutes(
     color: z.string().optional(),
     pin: z.string().length(4).regex(/^\d{4}$/).nullable().optional(),
     draftOrder: z.number().optional(),
+    email: z.union([z.string().email(), z.literal(""), z.null()]).optional(),
   });
 
   app.put("/api/siblings/:id", async (req, res) => {
@@ -733,10 +737,12 @@ export async function registerRoutes(
       }
       const data = updateSiblingSchema.parse(req.body);
       // Hash the PIN before storing, same as admin PIN
-      const updates = { ...data };
+      const updates: Record<string, any> = { ...data };
       if (data.pin !== undefined && data.pin !== null) {
         updates.pin = hashPin(data.pin);
       }
+      // Empty-string email clears it.
+      if (data.email === "") updates.email = null;
       const sibling = await storage.updateSibling(req.params.id, updates);
       if (!sibling) {
         return res.status(404).json({ error: "Sibling not found" });
@@ -747,6 +753,80 @@ export async function registerRoutes(
         return res.status(400).json({ error: error.errors });
       }
       res.status(500).json({ error: "Failed to update sibling" });
+    }
+  });
+
+  // ============ EMAIL INVITES ============
+  app.get("/api/email/status", (_req, res) => {
+    res.json({ enabled: emailEnabled() });
+  });
+
+  // Shared context for building/sending an invite (family branding + reply-to).
+  const inviteContext = async (req: any) => {
+    const settings = await storage.getAppSettings();
+    const estate = await getEstateById(currentEstateId());
+    let replyTo: string | undefined;
+    if (estate?.ownerId) {
+      const owner = await getOrganizerById(estate.ownerId);
+      replyTo = owner?.email || undefined;
+    }
+    const origin = (req.headers.origin as string) || `https://${req.headers.host}`;
+    return { settings, origin, replyTo };
+  };
+
+  const sendInvite = async (sibling: any, ctx: Awaited<ReturnType<typeof inviteContext>>) => {
+    const link = `${ctx.origin}/join/${sibling.shareToken}`;
+    const { subject, html } = buildInviteEmail({
+      recipientName: sibling.name,
+      familyName: ctx.settings?.familyName,
+      contactName: ctx.settings?.contactName,
+      link,
+    });
+    const result = await sendEmail({ to: sibling.email, subject, html, replyTo: ctx.replyTo });
+    if (result.ok) await storage.updateSibling(sibling.id, { invitedAt: new Date() });
+    return result;
+  };
+
+  app.post("/api/siblings/:id/invite", async (req, res) => {
+    try {
+      if (!(await verifyAdminPin(req))) {
+        return res.status(401).json({ error: "Admin PIN required" });
+      }
+      if (!emailEnabled()) {
+        return res.status(503).json({ error: "Email is not configured" });
+      }
+      const sibling = await storage.getSibling(req.params.id);
+      if (!sibling) return res.status(404).json({ error: "Sibling not found" });
+      if (!sibling.email) return res.status(400).json({ error: "This person has no email address" });
+      const result = await sendInvite(sibling, await inviteContext(req));
+      if (!result.ok) return res.status(502).json({ error: result.error || "Failed to send invite" });
+      const updated = await storage.getSibling(req.params.id);
+      res.json(sanitizeSiblingForAdmin(updated));
+    } catch (error) {
+      res.status(500).json({ error: "Failed to send invite" });
+    }
+  });
+
+  app.post("/api/siblings/invite-all", async (req, res) => {
+    try {
+      if (!(await verifyAdminPin(req))) {
+        return res.status(401).json({ error: "Admin PIN required" });
+      }
+      if (!emailEnabled()) {
+        return res.status(503).json({ error: "Email is not configured" });
+      }
+      const withEmail = (await storage.getAllSiblings()).filter((s) => s.email);
+      const ctx = await inviteContext(req);
+      let sent = 0;
+      const failures: string[] = [];
+      for (const s of withEmail) {
+        const r = await sendInvite(s, ctx);
+        if (r.ok) sent++;
+        else failures.push(s.name);
+      }
+      res.json({ sent, total: withEmail.length, failures });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to send invites" });
     }
   });
 

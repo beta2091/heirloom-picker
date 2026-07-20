@@ -102,8 +102,10 @@ active, so it is never blocked by billing):
    existing data-URI records keep serving. Follow-ups: delete orphaned blobs when
    media is replaced/removed, and route the first-run setup hero photo (uploaded
    before an admin PIN exists) through Blob too — it currently stays base64.
-2. **Participant multi-estate polish.** Per-estate landing/onboarding, automated
-   email/SMS invites (Resend/Postmark + Twilio) instead of "check your texts."
+2. **Participant onboarding.** ✅ Email invites shipped — organizers add a
+   participant's email and send their private `/join` link with one tap (or
+   "Invite all"), via Resend, env-gated behind `RESEND_API_KEY`. Still to do:
+   SMS invites (Twilio) and a per-estate landing/onboarding polish.
 3. **Durable rate limiting.** The current limiter is in-memory and ineffective on
    serverless — move to Postgres/Upstash.
 4. **Estate dashboard.** Let an organizer (e.g. an attorney) create and switch

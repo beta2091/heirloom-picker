@@ -40,6 +40,8 @@ export const siblings = pgTable("siblings", {
   shareToken: varchar("share_token").notNull().unique(), // unique token for shareable link
   color: text("color").notNull().default("#6366f1"), // color to identify them
   pin: varchar("pin", { length: 4 }), // 4-digit PIN for private wishlist access
+  email: text("email"), // optional — for emailing this person their private link
+  invitedAt: timestamp("invited_at"), // when their invite email was last sent
   wishlistSubmitted: boolean("wishlist_submitted").notNull().default(false),
   lotteryNumber: integer("lottery_number"),
   // When a sibling is satisfied with their picks, they can opt out of the
@@ -52,6 +54,7 @@ export const insertSiblingSchema = createInsertSchema(siblings).omit({
   estateId: true,
   shareToken: true,
   pin: true,
+  invitedAt: true,
 });
 export type InsertSibling = z.infer<typeof insertSiblingSchema>;
 export type Sibling = typeof siblings.$inferSelect;

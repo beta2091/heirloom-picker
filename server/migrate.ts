@@ -21,6 +21,9 @@ const statements = [
   )`,
   // Add opted_out column for existing deployments where siblings table already exists
   sql`ALTER TABLE siblings ADD COLUMN IF NOT EXISTS opted_out BOOLEAN NOT NULL DEFAULT false`,
+  // Email invites
+  sql`ALTER TABLE siblings ADD COLUMN IF NOT EXISTS email TEXT`,
+  sql`ALTER TABLE siblings ADD COLUMN IF NOT EXISTS invited_at TIMESTAMP`,
   sql`CREATE TABLE IF NOT EXISTS items (
     id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,

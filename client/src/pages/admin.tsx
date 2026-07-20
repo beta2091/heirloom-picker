@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Logo } from "@/components/logo";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Camera, Users, Trash2, ArrowLeft, ExternalLink, Image as ImageIcon, Loader2, Upload, Pencil, Mic, Volume2, X, Lock, Settings, Share, Shield, KeyRound, UserCog, Home, ImagePlus, User, CheckCircle2, Circle, Link2, RefreshCcw } from "lucide-react";
+import { Plus, Camera, Users, Trash2, ArrowLeft, ExternalLink, Image as ImageIcon, Loader2, Upload, Pencil, Mic, Volume2, X, Lock, Settings, Share, Shield, KeyRound, UserCog, Home, ImagePlus, User, CheckCircle2, Circle, Link2, RefreshCcw, Send, MailCheck } from "lucide-react";
 import { getInitials } from "@/lib/utils-initials";
 import { HelpTooltip } from "@/components/help-tooltip";
 import { AdminPinGate } from "@/components/admin-pin-gate";
@@ -34,6 +34,8 @@ interface SiblingResponse {
   shareToken: string;
   color: string;
   hasPin: boolean;
+  email?: string | null;
+  invitedAt?: string | null;
 }
 
 const SIBLING_COLORS = [
@@ -370,6 +372,8 @@ export default function Admin() {
   const [editSiblingColor, setEditSiblingColor] = useState("");
   const [editSiblingPin, setEditSiblingPin] = useState("");
   const [clearSiblingPin, setClearSiblingPin] = useState(false);
+  const [newSiblingEmail, setNewSiblingEmail] = useState("");
+  const [editSiblingEmail, setEditSiblingEmail] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const bulkFileInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
@@ -394,9 +398,27 @@ export default function Admin() {
   };
 
   const addSiblingMutation = useMutation({
-    mutationFn: async (data: { name: string; color: string }) => apiRequest("POST", "/api/siblings", { ...data, adminPin }),
-    onSuccess: () => { invalidateSiblings(); setSiblingDialogOpen(false); setNewSiblingName(""); toast({ title: "Family member added" }); },
+    mutationFn: async (data: { name: string; color: string; email?: string }) => apiRequest("POST", "/api/siblings", { ...data, adminPin }),
+    onSuccess: () => { invalidateSiblings(); setSiblingDialogOpen(false); setNewSiblingName(""); setNewSiblingEmail(""); toast({ title: "Family member added" }); },
     onError: () => toast({ title: "Failed to add family member", variant: "destructive" }),
+  });
+
+  const { data: emailStatus } = useQuery<{ enabled: boolean }>({ queryKey: ["/api/email/status"] });
+  const emailInvitesEnabled = !!emailStatus?.enabled;
+
+  const inviteMutation = useMutation({
+    mutationFn: async (id: string) => apiRequest("POST", `/api/siblings/${id}/invite`, { adminPin }),
+    onSuccess: () => { invalidateSiblings(); toast({ title: "Invite sent" }); },
+    onError: (e: any) => toast({ title: "Couldn't send invite", description: String(e?.message || "").replace(/^\d+:\s*/, ""), variant: "destructive" }),
+  });
+
+  const inviteAllMutation = useMutation({
+    mutationFn: async () => { const res = await apiRequest("POST", "/api/siblings/invite-all", { adminPin }); return res.json(); },
+    onSuccess: (data: { sent: number; total: number; failures: string[] }) => {
+      invalidateSiblings();
+      toast({ title: `${data.sent} of ${data.total} invites sent`, description: data.failures.length ? `Couldn't reach: ${data.failures.join(", ")}` : undefined });
+    },
+    onError: () => toast({ title: "Failed to send invites", variant: "destructive" }),
   });
 
   const deleteSiblingMutation = useMutation({
@@ -418,7 +440,7 @@ export default function Admin() {
   });
 
   const updateSiblingMutation = useMutation({
-    mutationFn: async (data: { id: string; name?: string; color?: string; pin?: string | null }) => apiRequest("PUT", `/api/siblings/${data.id}`, { name: data.name, color: data.color, pin: data.pin, adminPin }),
+    mutationFn: async (data: { id: string; name?: string; color?: string; pin?: string | null; email?: string | null }) => apiRequest("PUT", `/api/siblings/${data.id}`, { name: data.name, color: data.color, pin: data.pin, email: data.email, adminPin }),
     onSuccess: () => { invalidateSiblings(); setEditSiblingDialogOpen(false); setEditingSibling(null); toast({ title: "Family member updated" }); },
     onError: () => toast({ title: "Failed to update family member", variant: "destructive" }),
   });
@@ -554,16 +576,16 @@ export default function Admin() {
 
   const handleAddSibling = () => {
     if (!newSiblingName.trim()) return;
-    addSiblingMutation.mutate({ name: newSiblingName.trim(), color: SIBLING_COLORS[siblings.length % SIBLING_COLORS.length] });
+    addSiblingMutation.mutate({ name: newSiblingName.trim(), color: SIBLING_COLORS[siblings.length % SIBLING_COLORS.length], email: newSiblingEmail.trim() || undefined });
   };
 
   const openEditSiblingDialog = (sibling: SiblingResponse) => {
-    setEditingSibling(sibling); setEditSiblingName(sibling.name); setEditSiblingColor(sibling.color); setEditSiblingPin(""); setClearSiblingPin(false); setEditSiblingDialogOpen(true);
+    setEditingSibling(sibling); setEditSiblingName(sibling.name); setEditSiblingColor(sibling.color); setEditSiblingPin(""); setClearSiblingPin(false); setEditSiblingEmail(sibling.email || ""); setEditSiblingDialogOpen(true);
   };
 
   const handleUpdateSibling = () => {
     if (!editingSibling || !editSiblingName.trim()) return;
-    const updates: { id: string; name: string; color: string; pin?: string | null } = { id: editingSibling.id, name: editSiblingName.trim(), color: editSiblingColor };
+    const updates: { id: string; name: string; color: string; pin?: string | null; email?: string | null } = { id: editingSibling.id, name: editSiblingName.trim(), color: editSiblingColor, email: editSiblingEmail.trim() };
     if (clearSiblingPin) updates.pin = null;
     else if (editSiblingPin.trim().length === 4) updates.pin = editSiblingPin.trim();
     updateSiblingMutation.mutate(updates);
@@ -728,12 +750,18 @@ export default function Admin() {
                   <p className="mt-2 text-base leading-relaxed text-muted-foreground">Add family members who will participate in the draft</p>
                 </div>
               </div>
+              {emailInvitesEnabled && siblings.some((s) => s.email) && (
+                <Button size="sm" variant="outline" className="gap-2" onClick={() => inviteAllMutation.mutate()} disabled={inviteAllMutation.isPending} data-testid="button-invite-all">
+                  {inviteAllMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />} Invite all
+                </Button>
+              )}
               <Dialog open={siblingDialogOpen} onOpenChange={setSiblingDialogOpen}>
                 <DialogTrigger asChild><Button size="sm" className="gap-2" data-testid="button-add-sibling"><Plus className="w-4 h-4" /> Add</Button></DialogTrigger>
                 <DialogContent>
                   <DialogHeader><DialogTitle className="font-serif">Add Family Member</DialogTitle><DialogDescription>Add a sibling or family member who will participate in the draft.</DialogDescription></DialogHeader>
                   <div className="space-y-4 py-4">
                     <div className="space-y-2"><Label htmlFor="sibling-name">Name</Label><Input id="sibling-name" value={newSiblingName} onChange={(e) => setNewSiblingName(e.target.value)} placeholder="Enter name" data-testid="input-sibling-name" /></div>
+                    <div className="space-y-2"><Label htmlFor="sibling-email">Email <span className="text-muted-foreground font-normal">(optional)</span></Label><Input id="sibling-email" type="email" value={newSiblingEmail} onChange={(e) => setNewSiblingEmail(e.target.value)} placeholder="name@example.com" data-testid="input-sibling-email" />{emailInvitesEnabled ? <p className="text-xs text-muted-foreground">Add an email to send them their private link with one tap.</p> : null}</div>
                     <p className="text-sm text-muted-foreground">Draft order will be randomly assigned when the draft starts</p>
                     <Button onClick={handleAddSibling} disabled={!newSiblingName.trim() || addSiblingMutation.isPending} className="w-full" data-testid="button-confirm-add-sibling">
                       {addSiblingMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Add Family Member
@@ -755,7 +783,12 @@ export default function Admin() {
                           <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shrink-0" style={{ backgroundColor: sibling.color }}>{getInitials(sibling.name)}</div>
                           <div className="flex-1 min-w-0">
                             <h3 className="font-semibold truncate">{sibling.name}</h3>
-                            <p className="text-sm text-muted-foreground">{sibling.draftOrder > 0 ? `Pick #${sibling.draftOrder}` : "No pick order set"}</p>
+                            <p className="text-sm text-muted-foreground truncate">
+                              {sibling.email || (sibling.draftOrder > 0 ? `Pick #${sibling.draftOrder}` : "No pick order set")}
+                            </p>
+                            {sibling.invitedAt && (
+                              <span className="mt-1 inline-flex items-center gap-1 text-xs text-accent"><MailCheck className="w-3 h-3" /> Invited</span>
+                            )}
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             <div className="flex items-center gap-1">
@@ -778,6 +811,9 @@ export default function Admin() {
                               />
                             </div>
                             {sibling.hasPin && <Badge variant="secondary" className="gap-1"><Lock className="w-3 h-3" /> PIN</Badge>}
+                            {emailInvitesEnabled && sibling.email && (
+                              <Button variant="ghost" size="icon" onClick={() => inviteMutation.mutate(sibling.id)} disabled={inviteMutation.isPending} title={sibling.invitedAt ? "Resend invite email" : "Send invite email"} data-testid={`button-invite-${sibling.id}`}><Send className="w-4 h-4" /></Button>
+                            )}
                             <Button variant="ghost" size="icon" onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/join/${sibling.shareToken}`); toast({ title: "Link copied!", description: `Share link for ${sibling.name}` }); }} title="Copy share link" data-testid={`button-copy-link-${sibling.id}`}><Link2 className="w-4 h-4" /></Button>
                             <Button variant="ghost" size="icon" onClick={() => { if (confirm(`Rotate ${sibling.name}'s link? The old link will stop working immediately. The new link will be copied to your clipboard.`)) rotateTokenMutation.mutate(sibling.id); }} disabled={rotateTokenMutation.isPending} title="Rotate share link (invalidates old link)" data-testid={`button-rotate-link-${sibling.id}`}><RefreshCcw className="w-4 h-4" /></Button>
                             <Button variant="ghost" size="icon" onClick={() => openEditSiblingDialog(sibling)} title="Edit settings" data-testid={`button-edit-sibling-${sibling.id}`}><Settings className="w-4 h-4" /></Button>
@@ -1000,6 +1036,7 @@ export default function Admin() {
           <DialogHeader><DialogTitle className="font-serif">Edit Family Member</DialogTitle><DialogDescription>Update name, color, and privacy settings</DialogDescription></DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2"><Label htmlFor="edit-sibling-name">Name</Label><Input id="edit-sibling-name" value={editSiblingName} onChange={(e) => setEditSiblingName(e.target.value)} placeholder="Enter name" data-testid="input-edit-sibling-name" /></div>
+            <div className="space-y-2"><Label htmlFor="edit-sibling-email">Email <span className="text-muted-foreground font-normal">(optional)</span></Label><Input id="edit-sibling-email" type="email" value={editSiblingEmail} onChange={(e) => setEditSiblingEmail(e.target.value)} placeholder="name@example.com" data-testid="input-edit-sibling-email" /></div>
             <div className="space-y-2">
               <Label>Color</Label>
               <div className="flex flex-wrap gap-2">
