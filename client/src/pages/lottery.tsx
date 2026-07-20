@@ -748,7 +748,7 @@ export default function LotteryPage() {
             {allLocked && (
               <div className="text-center" data-testid="spin-section">
                 <div className="mb-6">
-                  <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-sm px-4 py-1">
+                  <Badge className="bg-accent/12 text-accent border-accent/20 text-sm px-4 py-1">
                     <Check className="w-4 h-4 mr-1" />
                     All numbers locked in
                   </Badge>
@@ -770,23 +770,23 @@ export default function LotteryPage() {
                     onClick={() => spinMutation.mutate()}
                     disabled={spinMutation.isPending}
                     size="lg"
-                    className="bg-gradient-to-r from-amber-400 to-amber-500 text-gray-900 hover:from-amber-300 hover:to-amber-400 text-lg px-8 py-6 gap-3 animate-pulse hover:animate-none"
+                    className="min-h-12 gap-3 px-8 text-base shadow-md"
                     data-testid="button-spin"
                   >
                     {spinMutation.isPending ? (
                       <Loader2 className="w-6 h-6 animate-spin" />
                     ) : (
                       <>
-                        <span className="text-xl">🎰</span>
-                        SPIN THE WHEEL
+                        <Sparkles className="w-5 h-5" />
+                        Draw the order
                       </>
                     )}
                   </Button>
                 ) : (
                   <div className="max-w-xs mx-auto space-y-4">
-                    <div className="flex items-center gap-2 justify-center text-gray-400">
+                    <div className="flex items-center gap-2 justify-center text-muted-foreground">
                       <Lock className="w-4 h-4" />
-                      <span className="text-sm">Admin access required to spin</span>
+                      <span className="text-sm">Admin access required to draw</span>
                     </div>
                     <input
                       type="password"
@@ -797,7 +797,7 @@ export default function LotteryPage() {
                       }}
                       placeholder="Enter admin PIN"
                       maxLength={4}
-                      className="w-full text-center text-2xl tracking-widest bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-amber-400 focus:outline-none"
+                      className="w-full rounded-lg border border-input bg-card px-4 py-3 text-center text-2xl tracking-widest text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && adminPinInput.length === 4) {
                           verifyAdminPin();
@@ -806,16 +806,16 @@ export default function LotteryPage() {
                       data-testid="input-admin-pin-lottery"
                     />
                     {adminPinError && (
-                      <p className="text-red-400 text-sm">Incorrect PIN. Try again.</p>
+                      <p className="text-sm text-destructive">Incorrect PIN. Try again.</p>
                     )}
                     <Button
                       onClick={verifyAdminPin}
                       disabled={adminPinInput.length !== 4}
                       size="lg"
-                      className="w-full bg-amber-400 text-gray-900 hover:bg-amber-300"
+                      className="min-h-12 w-full px-8 text-base shadow-md"
                       data-testid="button-verify-admin"
                     >
-                      Unlock Spin
+                      Unlock
                     </Button>
                   </div>
                 )}
