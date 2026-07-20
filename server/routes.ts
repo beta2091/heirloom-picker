@@ -206,7 +206,7 @@ export async function registerRoutes(
         form.set("line_items[0][quantity]", "1");
       } else {
         form.set("line_items[0][price_data][currency]", "usd");
-        form.set("line_items[0][price_data][product_data][name]", "Heirloom Picker — Estate Activation");
+        form.set("line_items[0][price_data][product_data][name]", "Evenkeep — Estate Activation");
         form.set("line_items[0][price_data][unit_amount]", process.env.STRIPE_ACTIVATION_AMOUNT || "9900");
         form.set("line_items[0][quantity]", "1");
       }

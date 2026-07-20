@@ -36,7 +36,7 @@ export default function Home() {
             <div className="w-10 h-10 rounded-md bg-primary flex items-center justify-center">
               <Heart className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="font-serif text-xl font-semibold">Estate Draft</span>
+            <span className="font-serif text-xl font-semibold">Evenkeep</span>
           </div>
           <nav className="flex items-center gap-4">
             <Link href="/account">

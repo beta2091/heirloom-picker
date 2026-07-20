@@ -1,8 +1,14 @@
 # Monetization & Release Strategy
 
-This document captures the plan to take Heirloom Picker (the "Estate Draft" app)
-from a single-family tool to a monetizable, publicly-releasable product — and
-tracks what has been built so far.
+This document captures the plan to take **Evenkeep** from a single-family tool
+to a monetizable, publicly-releasable product — and tracks what has been built
+so far.
+
+**Name:** Evenkeep (`evenkeep.com`) — chosen for warmth + ownability, a clean
+trademark namespace, and to differentiate from the clinical incumbent
+(FairSplit). "Even" (fair division) + "keep" (keepsakes) + "even keel" (calm, no
+family conflict). Tagline: *"The fair, kind way for families to divide a loved
+one's belongings."*
 
 ## The product
 
@@ -101,6 +107,7 @@ active, so it is never blocked by billing):
    between multiple estates from the UI (schema already supports it).
 5. **Legal/privacy.** Privacy policy, ToS, data-deletion/export, and a clear
    "not legal advice / not a substitute for a will" disclaimer.
-6. **Brand unification.** Pick one name (repo says "Heirloom Picker", UI says
-   "Estate Draft") and apply consistently.
+6. **Brand rollout.** Name unified to **Evenkeep** across the app. Still to do:
+   register `evenkeep.com` + social handles, file the USPTO trademark, and add a
+   logo/wordmark (currently a Heart icon + "Evenkeep" text).
 7. **Observability.** Sentry + lightweight product analytics.

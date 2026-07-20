@@ -313,7 +313,7 @@ export function AdminPinGate({ children, title = "Admin Access", description = "
               <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Shield className="w-8 h-8 text-primary" />
               </div>
-              <h2 className="font-serif text-2xl font-semibold mb-2" data-testid="text-setup-title">Set Up Estate Draft</h2>
+              <h2 className="font-serif text-2xl font-semibold mb-2" data-testid="text-setup-title">Set Up Evenkeep</h2>
               <p className="text-muted-foreground text-sm">
                 Welcome! Let's get your family's draft set up. Fill in the details below.
               </p>
@@ -476,7 +476,7 @@ export function AdminPinGate({ children, title = "Admin Access", description = "
                 data-testid="button-create-admin-pin"
               >
                 {settingUp && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Set Up Estate Draft
+                Set Up Evenkeep
               </Button>
             </div>
           </CardContent>

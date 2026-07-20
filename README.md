@@ -1,6 +1,7 @@
-# Heirloom Picker
+# Evenkeep
 
-A fair family inheritance draft app — divide belongings with love and fairness.
+The fair, kind way for families to divide a loved one's belongings — divide what
+matters with love and fairness.
 
 ## Tech Stack
 - React + TypeScript (Vite)
