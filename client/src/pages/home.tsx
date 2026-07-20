@@ -38,7 +38,12 @@ export default function Home() {
             </div>
             <span className="font-serif text-xl font-semibold">Estate Draft</span>
           </div>
-          <nav className="flex items-center gap-2">
+          <nav className="flex items-center gap-4">
+            <Link href="/account">
+              <span className="text-sm text-muted-foreground hover:text-foreground cursor-pointer" data-testid="link-signin">
+                Sign in
+              </span>
+            </Link>
             <Link href="/admin">
               <span className="text-sm text-muted-foreground hover:text-foreground cursor-pointer" data-testid="link-admin">
                 Manage

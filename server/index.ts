@@ -4,6 +4,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import { seedDatabase } from "./seed";
 import { runMigrations } from "./migrate";
+import { sessionMiddleware, tenantMiddleware } from "./auth";
 
 const app = express();
 const httpServer = createServer(app);
@@ -67,6 +68,10 @@ async function initialize() {
   if (initialized) return;
   initialized = true;
   await runMigrations();
+  // Organizer sessions + per-request estate (tenant) resolution. Must run
+  // before the routes so every /api handler executes inside an estate context.
+  app.use(sessionMiddleware);
+  app.use("/api", tenantMiddleware);
   await registerRoutes(httpServer, app);
   await seedDatabase();
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {

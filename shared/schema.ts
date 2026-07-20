@@ -3,9 +3,38 @@ import { pgTable, text, varchar, integer, boolean, timestamp, unique } from "dri
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Organizers - the paying account holders (executors, family organizers,
+// estate attorneys). One organizer can own one or more estates.
+export const organizers = pgTable("organizers", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  name: text("name"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+export type Organizer = typeof organizers.$inferSelect;
+
+// Estates - the tenant. Everything below (siblings, items, drafts, settings)
+// belongs to exactly one estate. This is what makes the app multi-family:
+// one deployment can host any number of independent estate drafts.
+export const estates = pgTable("estates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ownerId: varchar("owner_id").references(() => organizers.id),
+  name: text("name").notNull().default("My Family"),
+  // Billing lifecycle: "trial" until paid, "active" once the one-time
+  // activation is purchased. The draft cannot be started until "active".
+  status: text("status").notNull().default("trial"),
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeCheckoutId: text("stripe_checkout_id"),
+  activatedAt: timestamp("activated_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+export type Estate = typeof estates.$inferSelect;
+
 // Siblings - the family members who will be picking items
 export const siblings = pgTable("siblings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  estateId: varchar("estate_id").references(() => estates.id),
   name: text("name").notNull(),
   draftOrder: integer("draft_order").notNull().default(0), // 0 = unassigned, randomized when draft starts
   shareToken: varchar("share_token").notNull().unique(), // unique token for shareable link
@@ -20,6 +49,7 @@ export const siblings = pgTable("siblings", {
 
 export const insertSiblingSchema = createInsertSchema(siblings).omit({
   id: true,
+  estateId: true,
   shareToken: true,
   pin: true,
 });
@@ -29,6 +59,7 @@ export type Sibling = typeof siblings.$inferSelect;
 // Items - the belongings to be divided
 export const items = pgTable("items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  estateId: varchar("estate_id").references(() => estates.id),
   name: text("name").notNull(),
   description: text("description"),
   imageUrl: text("image_url"), // URL or base64 data
@@ -39,6 +70,7 @@ export const items = pgTable("items", {
 
 export const insertItemSchema = createInsertSchema(items).omit({
   id: true,
+  estateId: true,
   pickedBySiblingId: true,
   pickRound: true,
 });
@@ -48,6 +80,7 @@ export type Item = typeof items.$inferSelect;
 // Wishlist - siblings rank items they want (before the draft)
 export const wishlistItems = pgTable("wishlist_items", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  estateId: varchar("estate_id").references(() => estates.id),
   siblingId: varchar("sibling_id").notNull().references(() => siblings.id),
   itemId: varchar("item_id").notNull().references(() => items.id),
   priority: integer("priority").notNull(), // 1 = top choice, 2 = second, etc.
@@ -57,6 +90,7 @@ export const wishlistItems = pgTable("wishlist_items", {
 
 export const insertWishlistItemSchema = createInsertSchema(wishlistItems).omit({
   id: true,
+  estateId: true,
 });
 export type InsertWishlistItem = z.infer<typeof insertWishlistItemSchema>;
 export type WishlistItem = typeof wishlistItems.$inferSelect;
@@ -64,6 +98,7 @@ export type WishlistItem = typeof wishlistItems.$inferSelect;
 // Item ratings - per-sibling ratings and tier rankings for items
 export const itemRatings = pgTable("item_ratings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  estateId: varchar("estate_id").references(() => estates.id),
   siblingId: varchar("sibling_id").notNull().references(() => siblings.id),
   itemId: varchar("item_id").notNull().references(() => items.id),
   rating: integer("rating").notNull(),
@@ -74,6 +109,7 @@ export const itemRatings = pgTable("item_ratings", {
 
 export const insertItemRatingSchema = createInsertSchema(itemRatings).omit({
   id: true,
+  estateId: true,
 });
 export type InsertItemRating = z.infer<typeof insertItemRatingSchema>;
 export type ItemRating = typeof itemRatings.$inferSelect;
@@ -81,6 +117,7 @@ export type ItemRating = typeof itemRatings.$inferSelect;
 // Family members - extended family who visit via share links
 export const familyMembers = pgTable("family_members", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  estateId: varchar("estate_id").references(() => estates.id),
   siblingId: varchar("sibling_id").notNull().references(() => siblings.id),
   name: text("name").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -88,6 +125,7 @@ export const familyMembers = pgTable("family_members", {
 
 export const insertFamilyMemberSchema = createInsertSchema(familyMembers).omit({
   id: true,
+  estateId: true,
   createdAt: true,
 });
 export type InsertFamilyMember = z.infer<typeof insertFamilyMemberSchema>;
@@ -96,6 +134,7 @@ export type FamilyMember = typeof familyMembers.$inferSelect;
 // Family suggestions - items suggested by family members via share links
 export const familySuggestions = pgTable("family_suggestions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  estateId: varchar("estate_id").references(() => estates.id),
   familyMemberId: varchar("family_member_id").notNull().references(() => familyMembers.id),
   siblingId: varchar("sibling_id").notNull().references(() => siblings.id),
   itemId: varchar("item_id").notNull().references(() => items.id),
@@ -105,6 +144,7 @@ export const familySuggestions = pgTable("family_suggestions", {
 
 export const insertFamilySuggestionSchema = createInsertSchema(familySuggestions).omit({
   id: true,
+  estateId: true,
   createdAt: true,
 });
 export type InsertFamilySuggestion = z.infer<typeof insertFamilySuggestionSchema>;
@@ -113,6 +153,7 @@ export type FamilySuggestion = typeof familySuggestions.$inferSelect;
 // Draft state - tracks the current state of the draft
 export const draftState = pgTable("draft_state", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  estateId: varchar("estate_id").references(() => estates.id),
   currentRound: integer("current_round").notNull().default(1),
   currentPickIndex: integer("current_pick_index").notNull().default(0), // index into the pick order
   isActive: boolean("is_active").notNull().default(false),
@@ -121,6 +162,7 @@ export const draftState = pgTable("draft_state", {
 
 export const insertDraftStateSchema = createInsertSchema(draftState).omit({
   id: true,
+  estateId: true,
 });
 export type InsertDraftState = z.infer<typeof insertDraftStateSchema>;
 export type DraftState = typeof draftState.$inferSelect;
@@ -128,6 +170,7 @@ export type DraftState = typeof draftState.$inferSelect;
 // App settings - stores admin PIN and other configuration
 export const appSettings = pgTable("app_settings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  estateId: varchar("estate_id").references(() => estates.id),
   adminPin: varchar("admin_pin", { length: 64 }),
   adminName: text("admin_name"),
   recoveryCode: varchar("recovery_code", { length: 16 }),

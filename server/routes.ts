@@ -1,9 +1,21 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { createHash, randomBytes } from "crypto";
+import { createHash, randomBytes, createHmac, timingSafeEqual } from "crypto";
 import { storage } from "./storage";
 import { insertSiblingSchema, insertItemSchema } from "@shared/schema";
 import { z } from "zod";
+import { currentEstateId } from "./tenant";
+import { requireOrganizer } from "./auth";
+import {
+  createOrganizer,
+  getOrganizerByEmail,
+  getOrganizerById,
+  verifyPassword,
+  createEstate,
+  getEstateById,
+  getEstatesByOwner,
+  updateEstate,
+} from "./accounts";
 
 function hashPin(pin: string): string {
   return createHash("sha256").update(`estate-draft-${pin}`).digest("hex").slice(0, 32);
@@ -76,6 +88,181 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  // ============ ORGANIZER ACCOUNTS ============
+  const signupSchema = z.object({
+    email: z.string().email(),
+    password: z.string().min(8, "Password must be at least 8 characters"),
+    name: z.string().optional(),
+    estateName: z.string().optional(),
+  });
+  const loginSchema = z.object({
+    email: z.string().email(),
+    password: z.string().min(1),
+  });
+
+  // Shape returned to the client for the signed-in organizer + their estate.
+  async function meResponse(organizerId: string) {
+    const organizer = await getOrganizerById(organizerId);
+    if (!organizer) return null;
+    const estates = await getEstatesByOwner(organizerId);
+    const estate = estates[0] ?? null;
+    return {
+      organizer: { id: organizer.id, email: organizer.email, name: organizer.name },
+      estate: estate
+        ? { id: estate.id, name: estate.name, status: estate.status }
+        : null,
+    };
+  }
+
+  app.post("/api/auth/signup", async (req, res) => {
+    try {
+      const data = signupSchema.parse(req.body);
+      const existing = await getOrganizerByEmail(data.email);
+      if (existing) {
+        return res.status(409).json({ error: "An account with this email already exists" });
+      }
+      const limited = rateLimit(`signup:${ipOf(req)}`, 10, 60 * 60 * 1000, 60 * 60 * 1000);
+      if (limited) return res.status(429).json({ error: `Too many attempts. Try again in ${limited}s.` });
+
+      const organizer = await createOrganizer(data.email, data.password, data.name);
+      const estate = await createEstate(organizer.id, data.estateName || data.name || "My Family");
+      req.session.organizerId = organizer.id;
+      req.session.estateId = estate.id;
+      res.json(await meResponse(organizer.id));
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0]?.message || "Invalid request" });
+      }
+      res.status(500).json({ error: "Failed to create account" });
+    }
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const data = loginSchema.parse(req.body);
+      const limited = rateLimit(`login:${ipOf(req)}`, 10, 15 * 60 * 1000, 15 * 60 * 1000);
+      if (limited) return res.status(429).json({ error: `Too many attempts. Try again in ${limited}s.` });
+
+      const organizer = await getOrganizerByEmail(data.email);
+      if (!organizer || !(await verifyPassword(data.password, organizer.passwordHash))) {
+        return res.status(401).json({ error: "Invalid email or password" });
+      }
+      rateLimitClear(`login:${ipOf(req)}`);
+      const estates = await getEstatesByOwner(organizer.id);
+      req.session.organizerId = organizer.id;
+      req.session.estateId = estates[0]?.id;
+      res.json(await meResponse(organizer.id));
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid request" });
+      }
+      res.status(500).json({ error: "Failed to sign in" });
+    }
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy(() => res.json({ success: true }));
+  });
+
+  app.get("/api/auth/me", async (req, res) => {
+    if (!req.session?.organizerId) return res.status(401).json({ error: "Not signed in" });
+    const me = await meResponse(req.session.organizerId);
+    if (!me) return res.status(401).json({ error: "Not signed in" });
+    res.json(me);
+  });
+
+  // ============ BILLING (Stripe, env-gated) ============
+  // Inert until STRIPE_SECRET_KEY is configured, so nothing breaks without it.
+  const stripeEnabled = () => !!process.env.STRIPE_SECRET_KEY;
+
+  app.get("/api/billing/status", async (req, res) => {
+    const estate = await getEstateById(currentEstateId());
+    res.json({
+      status: estate?.status ?? "trial",
+      active: estate?.status === "active",
+      billingEnabled: stripeEnabled(),
+    });
+  });
+
+  app.post("/api/billing/checkout", requireOrganizer, async (req, res) => {
+    try {
+      if (!stripeEnabled()) {
+        return res.status(503).json({ error: "Billing is not configured yet" });
+      }
+      const estateId = req.session.estateId;
+      if (!estateId) return res.status(400).json({ error: "No estate selected" });
+      const estate = await getEstateById(estateId);
+      if (!estate) return res.status(404).json({ error: "Estate not found" });
+      if (estate.status === "active") return res.json({ alreadyActive: true });
+
+      const origin = req.headers.origin || `https://${req.headers.host}`;
+      const form = new URLSearchParams();
+      form.set("mode", "payment");
+      form.set("success_url", `${origin}/admin?activated=1`);
+      form.set("cancel_url", `${origin}/admin`);
+      form.set("client_reference_id", estate.id);
+      if (process.env.STRIPE_PRICE_ID) {
+        form.set("line_items[0][price]", process.env.STRIPE_PRICE_ID);
+        form.set("line_items[0][quantity]", "1");
+      } else {
+        form.set("line_items[0][price_data][currency]", "usd");
+        form.set("line_items[0][price_data][product_data][name]", "Heirloom Picker — Estate Activation");
+        form.set("line_items[0][price_data][unit_amount]", process.env.STRIPE_ACTIVATION_AMOUNT || "9900");
+        form.set("line_items[0][quantity]", "1");
+      }
+
+      const resp = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: form.toString(),
+      });
+      const sessionData: any = await resp.json();
+      if (!resp.ok) {
+        console.error("[stripe] checkout error", sessionData);
+        return res.status(502).json({ error: "Could not start checkout" });
+      }
+      await updateEstate(estate.id, { stripeCheckoutId: sessionData.id });
+      res.json({ url: sessionData.url });
+    } catch (error) {
+      console.error("[stripe] checkout exception", error);
+      res.status(500).json({ error: "Could not start checkout" });
+    }
+  });
+
+  // Stripe webhook — verifies the signature against the raw body, then
+  // activates the estate once payment completes.
+  app.post("/api/billing/webhook", async (req, res) => {
+    try {
+      const secret = process.env.STRIPE_WEBHOOK_SECRET;
+      const sig = req.headers["stripe-signature"] as string | undefined;
+      const raw = (req as any).rawBody as Buffer | undefined;
+      if (secret && sig && raw) {
+        const parts = Object.fromEntries(sig.split(",").map((kv) => kv.split("=")));
+        const signedPayload = `${parts.t}.${raw.toString("utf8")}`;
+        const expected = createHmac("sha256", secret).update(signedPayload).digest("hex");
+        const a = Buffer.from(expected);
+        const b = Buffer.from(parts.v1 || "");
+        if (a.length !== b.length || !timingSafeEqual(a, b)) {
+          return res.status(400).json({ error: "Invalid signature" });
+        }
+      }
+      const event = JSON.parse(((req as any).rawBody as Buffer | undefined)?.toString("utf8") || "{}");
+      if (event.type === "checkout.session.completed") {
+        const estateId = event.data?.object?.client_reference_id;
+        if (estateId) {
+          await updateEstate(estateId, { status: "active", activatedAt: new Date() });
+        }
+      }
+      res.json({ received: true });
+    } catch (error) {
+      console.error("[stripe] webhook error", error);
+      res.status(400).json({ error: "Webhook error" });
+    }
+  });
+
   // ============ ADMIN PIN ============
 
   app.get("/api/admin/status", async (req, res) => {
@@ -1205,6 +1392,15 @@ export async function registerRoutes(
     try {
       if (!(await verifyAdminPin(req))) {
         return res.status(401).json({ error: "Admin PIN required" });
+      }
+      // Billing gate: an estate must be activated before its draft can run.
+      // Only enforced when Stripe is configured, so local/dev and the legacy
+      // (already-active) deployment are unaffected.
+      if (process.env.STRIPE_SECRET_KEY) {
+        const estate = await getEstateById(currentEstateId());
+        if (estate && estate.status !== "active") {
+          return res.status(402).json({ error: "This estate needs to be activated before starting the draft.", needsActivation: true });
+        }
       }
       const allSiblings = await storage.getAllSiblings();
       if (allSiblings.length === 0) {

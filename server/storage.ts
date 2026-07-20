@@ -13,6 +13,7 @@ import {
 import { db } from "./db";
 import { eq, and, isNull } from "drizzle-orm";
 import { randomUUID } from "crypto";
+import { currentEstateId } from "./tenant";
 
 export interface IStorage {
   // Users (legacy)
@@ -108,15 +109,18 @@ export class DatabaseStorage implements IStorage {
 
   // Siblings
   async getAllSiblings(): Promise<Sibling[]> {
-    return db.select().from(siblings);
+    return db.select().from(siblings).where(eq(siblings.estateId, currentEstateId()));
   }
 
   async getSibling(id: string): Promise<Sibling | undefined> {
-    const result = await db.select().from(siblings).where(eq(siblings.id, id));
+    const result = await db.select().from(siblings)
+      .where(and(eq(siblings.id, id), eq(siblings.estateId, currentEstateId())));
     return result[0];
   }
 
   async getSiblingByShareToken(token: string): Promise<Sibling | undefined> {
+    // Share tokens are globally unique, so this is not estate-filtered — it is
+    // also how a participant's request first resolves which estate it belongs to.
     const result = await db.select().from(siblings).where(eq(siblings.shareToken, token));
     return result[0];
   }
@@ -125,6 +129,7 @@ export class DatabaseStorage implements IStorage {
     const shareToken = randomUUID();
     const result = await db.insert(siblings).values({
       ...sibling,
+      estateId: currentEstateId(),
       shareToken,
     }).returning();
     return result[0];
@@ -159,16 +164,17 @@ export class DatabaseStorage implements IStorage {
 
   // Items
   async getAllItems(): Promise<Item[]> {
-    return db.select().from(items);
+    return db.select().from(items).where(eq(items.estateId, currentEstateId()));
   }
 
   async getItem(id: string): Promise<Item | undefined> {
-    const result = await db.select().from(items).where(eq(items.id, id));
+    const result = await db.select().from(items)
+      .where(and(eq(items.id, id), eq(items.estateId, currentEstateId())));
     return result[0];
   }
 
   async createItem(item: InsertItem): Promise<Item> {
-    const result = await db.insert(items).values(item).returning();
+    const result = await db.insert(items).values({ ...item, estateId: currentEstateId() }).returning();
     return result[0];
   }
 
@@ -185,10 +191,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteAllItems(): Promise<void> {
-    await db.delete(familySuggestions);
-    await db.delete(itemRatings);
-    await db.delete(wishlistItems);
-    await db.delete(items);
+    const estateId = currentEstateId();
+    await db.delete(familySuggestions).where(eq(familySuggestions.estateId, estateId));
+    await db.delete(itemRatings).where(eq(itemRatings.estateId, estateId));
+    await db.delete(wishlistItems).where(eq(wishlistItems.estateId, estateId));
+    await db.delete(items).where(eq(items.estateId, estateId));
   }
 
   // Wishlist
@@ -197,7 +204,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createWishlistItem(item: InsertWishlistItem): Promise<WishlistItem> {
-    const result = await db.insert(wishlistItems).values(item).returning();
+    const result = await db.insert(wishlistItems).values({ ...item, estateId: currentEstateId() }).returning();
     return result[0];
   }
 
@@ -225,7 +232,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createFamilyMember(member: InsertFamilyMember): Promise<FamilyMember> {
-    const result = await db.insert(familyMembers).values(member).returning();
+    const result = await db.insert(familyMembers).values({ ...member, estateId: currentEstateId() }).returning();
     return result[0];
   }
 
@@ -239,7 +246,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createFamilySuggestion(suggestion: InsertFamilySuggestion): Promise<FamilySuggestion> {
-    const result = await db.insert(familySuggestions).values(suggestion).returning();
+    const result = await db.insert(familySuggestions).values({ ...suggestion, estateId: currentEstateId() }).returning();
     return result[0];
   }
 
@@ -282,6 +289,7 @@ export class DatabaseStorage implements IStorage {
         and(eq(itemRatings.siblingId, siblingId), eq(itemRatings.rating, rating))
       );
       const result = await db.insert(itemRatings).values({
+        estateId: currentEstateId(),
         siblingId,
         itemId,
         rating,
@@ -315,7 +323,8 @@ export class DatabaseStorage implements IStorage {
 
   // Draft State
   async getDraftState(): Promise<DraftState | undefined> {
-    const result = await db.select().from(draftState);
+    const result = await db.select().from(draftState)
+      .where(eq(draftState.estateId, currentEstateId()));
     return result[0];
   }
 
@@ -326,6 +335,7 @@ export class DatabaseStorage implements IStorage {
       return result[0];
     } else {
       const result = await db.insert(draftState).values({
+        estateId: currentEstateId(),
         currentRound: state.currentRound ?? 1,
         currentPickIndex: state.currentPickIndex ?? 0,
         isActive: state.isActive ?? false,
@@ -347,8 +357,9 @@ export class DatabaseStorage implements IStorage {
   }): Promise<{ ok: true; state: DraftState } | { ok: false; reason: "race" | "already_picked" | "not_active" }> {
     // Transaction: lock the draft-state row, verify state, then flip both
     // rows. If any guard fails, the transaction rolls back.
+    const estateId = currentEstateId();
     return await db.transaction(async (tx) => {
-      const stateRows = await tx.select().from(draftState);
+      const stateRows = await tx.select().from(draftState).where(eq(draftState.estateId, estateId));
       const state = stateRows[0];
       if (!state || !state.isActive) {
         return { ok: false as const, reason: "not_active" as const };
@@ -359,11 +370,12 @@ export class DatabaseStorage implements IStorage {
       }
 
       // Claim the item only if it's still unpicked. The WHERE clause makes
-      // this atomic — no need for a separate SELECT.
+      // this atomic — no need for a separate SELECT. Scoped to the estate so a
+      // spoofed item id from another tenant can never be claimed here.
       const claimed = await tx
         .update(items)
         .set({ pickedBySiblingId: args.siblingId, pickRound: args.pickRound })
-        .where(and(eq(items.id, args.itemId), isNull(items.pickedBySiblingId)))
+        .where(and(eq(items.id, args.itemId), eq(items.estateId, estateId), isNull(items.pickedBySiblingId)))
         .returning();
 
       if (claimed.length === 0) {
@@ -387,8 +399,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async resetDraft(): Promise<void> {
-    // Reset all items to unpicked
-    await db.update(items).set({ pickedBySiblingId: null, pickRound: null });
+    // Reset all items to unpicked (this estate only)
+    await db.update(items).set({ pickedBySiblingId: null, pickRound: null })
+      .where(eq(items.estateId, currentEstateId()));
     // Reset draft state
     const existing = await this.getDraftState();
     if (existing) {
@@ -403,7 +416,8 @@ export class DatabaseStorage implements IStorage {
 
   // App Settings
   async getAppSettings(): Promise<AppSettings | undefined> {
-    const result = await db.select().from(appSettings);
+    const result = await db.select().from(appSettings)
+      .where(eq(appSettings.estateId, currentEstateId()));
     return result[0];
   }
 
@@ -413,7 +427,7 @@ export class DatabaseStorage implements IStorage {
       const result = await db.update(appSettings).set({ adminPin: pin }).where(eq(appSettings.id, existing.id)).returning();
       return result[0];
     } else {
-      const result = await db.insert(appSettings).values({ adminPin: pin }).returning();
+      const result = await db.insert(appSettings).values({ adminPin: pin, estateId: currentEstateId() }).returning();
       return result[0];
     }
   }
@@ -424,7 +438,7 @@ export class DatabaseStorage implements IStorage {
       const result = await db.update(appSettings).set(updates).where(eq(appSettings.id, existing.id)).returning();
       return result[0];
     } else {
-      const result = await db.insert(appSettings).values(updates).returning();
+      const result = await db.insert(appSettings).values({ ...updates, estateId: currentEstateId() }).returning();
       return result[0];
     }
   }

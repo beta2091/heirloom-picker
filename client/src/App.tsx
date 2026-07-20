@@ -12,11 +12,15 @@ import DraftMaster from "@/pages/draft-master";
 import Results from "@/pages/results";
 import OwnerPage from "@/pages/owner";
 import JoinPage from "@/pages/join";
+import Account from "@/pages/account";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/account" component={Account} />
+      <Route path="/login" component={Account} />
+      <Route path="/signup" component={Account} />
       <Route path="/admin" component={Admin} />
       <Route path="/sibling/:id" component={SiblingPage} />
       <Route path="/draft" component={Draft} />
