@@ -56,6 +56,7 @@ npm run build
 | `STRIPE_WEBHOOK_SECRET` | Verifies Stripe webhook signatures |
 | `STRIPE_PRICE_ID` | Optional — a fixed Stripe Price to charge for activation |
 | `STRIPE_ACTIVATION_AMOUNT` | Optional — inline activation amount in cents (default `9900`) |
+| `BLOB_READ_WRITE_TOKEN` | Enables object storage for photos/audio (Vercel Blob). Omit to fall back to base64-in-DB. |
 
 ## Multi-tenancy
 

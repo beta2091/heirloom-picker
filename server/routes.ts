@@ -4,6 +4,7 @@ import { createHash, randomBytes, createHmac, timingSafeEqual } from "crypto";
 import { storage } from "./storage";
 import { insertSiblingSchema, insertItemSchema } from "@shared/schema";
 import { z } from "zod";
+import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { currentEstateId } from "./tenant";
 import { requireOrganizer } from "./auth";
 import {
@@ -263,6 +264,59 @@ export async function registerRoutes(
     }
   });
 
+  // ============ MEDIA UPLOADS (object storage, env-gated) ============
+  // Direct browser → Vercel Blob uploads that bypass the serverless body limit.
+  // Inert until BLOB_READ_WRITE_TOKEN is set (client falls back to base64).
+  app.get("/api/uploads/status", (_req, res) => {
+    res.json({ enabled: !!process.env.BLOB_READ_WRITE_TOKEN });
+  });
+
+  app.post("/api/uploads", async (req, res) => {
+    try {
+      if (!process.env.BLOB_READ_WRITE_TOKEN) {
+        return res.status(503).json({ error: "Object storage not configured" });
+      }
+      // @vercel/blob reads a couple of headers off a web-style Request; shim it
+      // for Express so we don't need the whole Fetch API request object.
+      const requestShim = {
+        headers: { get: (k: string) => (req.headers[k.toLowerCase()] as string) ?? null },
+      } as any;
+
+      const jsonResponse = await handleUpload({
+        body: req.body as HandleUploadBody,
+        request: requestShim,
+        onBeforeGenerateToken: async (_pathname, clientPayload) => {
+          // Authorize: the caller must present a valid admin PIN for the current
+          // estate (resolved from the organizer session by tenant middleware).
+          let adminPin: string | null = null;
+          try {
+            adminPin = JSON.parse(clientPayload || "{}").adminPin ?? null;
+          } catch {
+            /* ignore */
+          }
+          const settings = await storage.getAppSettings();
+          if (!settings?.adminPin || !adminPin || settings.adminPin !== hashPin(adminPin)) {
+            throw new Error("Admin PIN required");
+          }
+          return {
+            allowedContentTypes: [
+              "image/jpeg", "image/png", "image/webp", "image/gif", "image/heic",
+              "audio/mpeg", "audio/mp4", "audio/webm", "audio/ogg", "audio/wav", "audio/x-m4a",
+            ],
+            maximumSizeInBytes: 25 * 1024 * 1024,
+            addRandomSuffix: true,
+          };
+        },
+        onUploadCompleted: async () => {
+          // No-op: the client captures the returned URL and saves it on the item.
+        },
+      });
+      res.json(jsonResponse);
+    } catch (error: any) {
+      res.status(400).json({ error: error?.message || "Upload authorization failed" });
+    }
+  });
+
   // ============ ADMIN PIN ============
 
   app.get("/api/admin/status", async (req, res) => {
@@ -310,7 +364,7 @@ export async function registerRoutes(
       }
       rateLimitClear(key);
 
-      if (data.heroPhoto && data.heroPhoto.length > 0 && !data.heroPhoto.startsWith("data:image/")) {
+      if (data.heroPhoto && data.heroPhoto.length > 0 && !data.heroPhoto.startsWith("data:image/") && !/^https:\/\//.test(data.heroPhoto)) {
         return res.status(400).json({ error: "Invalid image format" });
       }
       
@@ -535,6 +589,10 @@ export async function registerRoutes(
         res.set("Cache-Control", "public, max-age=3600");
         return res.send(buffer);
       }
+      // Object-storage URL — redirect to it.
+      if (/^https?:\/\//.test(settings.heroPhoto)) {
+        return res.redirect(settings.heroPhoto);
+      }
       res.status(404).json({ error: "Invalid photo data" });
     } catch (error) {
       res.status(500).json({ error: "Failed to get hero photo" });
@@ -555,7 +613,7 @@ export async function registerRoutes(
       if (!settings?.adminPin || settings.adminPin !== hashPin(data.pin)) {
         return res.status(401).json({ error: "Invalid admin PIN" });
       }
-      if (data.heroPhoto && data.heroPhoto.length > 0 && !data.heroPhoto.startsWith("data:image/")) {
+      if (data.heroPhoto && data.heroPhoto.length > 0 && !data.heroPhoto.startsWith("data:image/") && !/^https:\/\//.test(data.heroPhoto)) {
         return res.status(400).json({ error: "Invalid image format" });
       }
       const updates: Record<string, any> = {};

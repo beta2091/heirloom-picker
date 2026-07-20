@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { storeMedia, isNewMediaRef } from "@/lib/uploads";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -169,7 +170,15 @@ function FamilySettings({ verifiedPin }: { verifiedPin: string }) {
     if (!file) return;
     if (file.size > 10 * 1024 * 1024) { toast({ title: "Photo must be under 10MB", variant: "destructive" }); return; }
     const reader = new FileReader();
-    reader.onload = () => { const dataUrl = reader.result as string; setHeroPhotoPreview(dataUrl); setHeroPhotoData(dataUrl); };
+    reader.onload = async () => {
+      const dataUrl = reader.result as string;
+      setHeroPhotoPreview(dataUrl);
+      try {
+        setHeroPhotoData(await storeMedia(dataUrl, file.name, verifiedPin));
+      } catch {
+        toast({ title: "Failed to upload photo", variant: "destructive" });
+      }
+    };
     reader.readAsDataURL(file);
   };
 
@@ -480,12 +489,12 @@ export default function Admin() {
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) { try { setNewItemImage(await compressImage(file)); } catch { toast({ title: "Failed to process image", variant: "destructive" }); } }
+    if (file) { try { setNewItemImage(await storeMedia(await compressImage(file), file.name, adminPin)); } catch { toast({ title: "Failed to process image", variant: "destructive" }); } }
   };
 
   const handleEditImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) { try { setEditItemImage(await compressImage(file)); } catch { toast({ title: "Failed to process image", variant: "destructive" }); } }
+    if (file) { try { setEditItemImage(await storeMedia(await compressImage(file), file.name, adminPin)); } catch { toast({ title: "Failed to process image", variant: "destructive" }); } }
   };
 
   const handleAudioUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -497,7 +506,10 @@ export default function Admin() {
         if (audio.duration > 180) { toast({ title: "Audio too long", description: "Please select an audio file 3 minutes or less.", variant: "destructive" }); URL.revokeObjectURL(audio.src); return; }
         URL.revokeObjectURL(audio.src);
         const reader = new FileReader();
-        reader.onloadend = () => setNewItemAudio(reader.result as string);
+        reader.onloadend = async () => {
+          try { setNewItemAudio(await storeMedia(reader.result as string, file.name, adminPin)); }
+          catch { toast({ title: "Failed to upload audio", variant: "destructive" }); }
+        };
         reader.readAsDataURL(file);
       };
     }
@@ -512,7 +524,10 @@ export default function Admin() {
         if (audio.duration > 180) { toast({ title: "Audio too long", description: "Please select an audio file 3 minutes or less.", variant: "destructive" }); URL.revokeObjectURL(audio.src); return; }
         URL.revokeObjectURL(audio.src);
         const reader = new FileReader();
-        reader.onloadend = () => setEditItemAudio(reader.result as string);
+        reader.onloadend = async () => {
+          try { setEditItemAudio(await storeMedia(reader.result as string, file.name, adminPin)); }
+          catch { toast({ title: "Failed to upload audio", variant: "destructive" }); }
+        };
         reader.readAsDataURL(file);
       };
     }
@@ -528,9 +543,11 @@ export default function Admin() {
   const handleUpdateItem = () => {
     if (!editingItem || !editItemName.trim()) return;
     const updates: { id: string; name: string; description?: string | null; imageUrl?: string | null; audioUrl?: string | null } = { id: editingItem.id, name: editItemName.trim(), description: editItemDescription.trim() || null };
-    if (editItemImage?.startsWith("data:")) updates.imageUrl = editItemImage;
+    // A freshly uploaded ref is either a data: URL (fallback) or an https Blob
+    // URL; an unchanged one is the existing "/api/items/:id/..." path.
+    if (isNewMediaRef(editItemImage)) updates.imageUrl = editItemImage;
     else if (editItemImage === null) updates.imageUrl = null;
-    if (editItemAudio?.startsWith("data:")) updates.audioUrl = editItemAudio;
+    if (isNewMediaRef(editItemAudio)) updates.audioUrl = editItemAudio;
     else if (editItemAudio === null) updates.audioUrl = null;
     updateItemMutation.mutate(updates);
   };
@@ -580,7 +597,9 @@ export default function Admin() {
 
   const uploadItem = async (name: string, preview: string): Promise<UploadFailure | null> => {
     try {
-      await apiRequest("POST", "/api/items", { name, imageUrl: preview, adminPin });
+      // Persist to object storage when configured (no-op passthrough otherwise).
+      const imageUrl = await storeMedia(preview, `${name || "item"}.jpg`, adminPin);
+      await apiRequest("POST", "/api/items", { name, imageUrl, adminPin });
       return null;
     } catch (err) {
       const { category, message } = categorizeUploadError(err);

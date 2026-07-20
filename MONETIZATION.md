@@ -96,9 +96,12 @@ active, so it is never blocked by billing):
 
 ## Recommended next steps (not yet done)
 
-1. **Object storage for media.** Photos/audio are still base64 in Postgres with a
-   50MB JSON limit — move to Vercel Blob / R2 / S3 with presigned uploads + image
-   resizing before scaling. *(Highest-priority infra item.)*
+1. ~~**Object storage for media.**~~ ✅ Done — photos/audio now upload directly
+   from the browser to Vercel Blob (bypassing the serverless body limit) when
+   `BLOB_READ_WRITE_TOKEN` is set, with automatic base64 fallback otherwise;
+   existing data-URI records keep serving. Follow-ups: delete orphaned blobs when
+   media is replaced/removed, and route the first-run setup hero photo (uploaded
+   before an admin PIN exists) through Blob too — it currently stays base64.
 2. **Participant multi-estate polish.** Per-estate landing/onboarding, automated
    email/SMS invites (Resend/Postmark + Twilio) instead of "check your texts."
 3. **Durable rate limiting.** The current limiter is in-memory and ineffective on
