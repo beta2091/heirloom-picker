@@ -3,7 +3,6 @@ import { Link, useParams } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, Star, GripVertical, Loader2, Image as ImageIcon,
   Lock, Volume2, ChevronRight, CheckCircle2, Circle,
-  Send, Unlock, X, ZoomIn, Trophy, Clock, Sparkles
+  Send, Unlock, X, ZoomIn, Trophy, Clock, Sparkles, ShieldCheck
 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getInitials } from "@/lib/utils-initials";
@@ -60,12 +59,12 @@ function Lightbox({ src, name, onClose }: { src: string; name: string; onClose: 
   }, [onClose]);
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={onClose}>
-      <button className="absolute top-4 right-4 text-white bg-black/40 rounded-full p-2 hover:bg-black/60 transition-colors" onClick={onClose} aria-label="Close">
+      <button className="absolute top-4 right-4 min-h-12 min-w-12 flex items-center justify-center text-white bg-black/40 rounded-full hover:bg-black/60 transition-colors" onClick={onClose} aria-label="Close">
         <X className="w-6 h-6" />
       </button>
-      <div className="relative max-w-3xl w-full max-h-[90vh] flex flex-col items-center gap-3" onClick={(e) => e.stopPropagation()}>
-        <img src={src} alt={name} className="rounded-lg object-contain max-h-[80vh] w-full shadow-2xl" />
-        <p className="text-white font-medium text-lg drop-shadow">{name}</p>
+      <div className="relative max-w-3xl w-full max-h-[90vh] flex flex-col items-center gap-4" onClick={(e) => e.stopPropagation()}>
+        <img src={src} alt={name} className="rounded-2xl object-contain max-h-[80vh] w-full shadow-xl" />
+        <p className="font-serif text-white text-lg drop-shadow">{name}</p>
       </div>
     </div>
   );
@@ -75,8 +74,8 @@ function ItemImage({ item, size = "lg" }: { item: ItemResponse; size?: "sm" | "l
   const [open, setOpen] = useState(false);
   if (!item.hasImage) {
     return (
-      <div className={`${size === "lg" ? "w-full h-full" : "w-12 h-12"} bg-muted flex items-center justify-center`}>
-        <ImageIcon className={size === "lg" ? "w-10 h-10 text-muted-foreground" : "w-5 h-5 text-muted-foreground"} />
+      <div className={`${size === "lg" ? "w-full h-full" : "w-12 h-12"} bg-secondary flex items-center justify-center`}>
+        <ImageIcon className={size === "lg" ? "w-10 h-10 text-muted-foreground/60" : "w-5 h-5 text-muted-foreground/60"} />
       </div>
     );
   }
@@ -104,8 +103,8 @@ const TIER_LABELS: Record<number, string> = {
 
 function TierDivider({ stars }: { stars: number }) {
   return (
-    <div className="flex items-center gap-3 py-1 px-1 select-none">
-      <span className="text-xs font-semibold text-muted-foreground tracking-wide uppercase whitespace-nowrap">
+    <div className="flex items-center gap-3 pt-5 pb-2 px-1 select-none">
+      <span className="text-sm font-semibold text-primary tracking-[0.14em] uppercase whitespace-nowrap">
         {TIER_LABELS[stars] ?? `${stars} Stars`}
       </span>
       <div className="flex-1 h-px bg-border" />
@@ -261,37 +260,42 @@ export default function SiblingPage() {
   };
 
   if (siblingLoading) return <div className="min-h-screen bg-background flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
-  if (!sibling) return <div className="min-h-screen bg-background flex items-center justify-center"><Card><CardContent className="py-12 text-center"><p className="text-muted-foreground">Family member not found</p><Link href="/"><Button variant="ghost" className="mt-4">Go back</Button></Link></CardContent></Card></div>;
+  if (!sibling) return <div className="min-h-screen bg-background flex items-center justify-center p-4"><div className="rounded-2xl border border-card-border bg-card p-8 text-center shadow-sm"><p className="text-base text-muted-foreground">Family member not found</p><Link href="/"><Button variant="outline" className="mt-5 min-h-12">Go back home</Button></Link></div></div>;
 
   if (sibling.hasPin && !isVerified) return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardContent className="py-8 text-center space-y-6">
-          <div className="w-16 h-16 rounded-full flex items-center justify-center text-white font-bold text-2xl mx-auto" style={{ backgroundColor: sibling.color }}>{getInitials(sibling.name)}</div>
-          <div><h1 className="font-serif text-2xl font-semibold">{sibling.name}'s Rankings</h1><p className="text-muted-foreground mt-2">Enter your 4-digit PIN to access your rankings</p></div>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="pin-input" className="flex items-center gap-2 justify-center"><Lock className="w-4 h-4" /> Private PIN</Label>
-              <Input
-                id="pin-input"
-                type="password"
-                inputMode="numeric"
-                autoComplete="off"
-                value={pinInput}
-                onChange={(e) => { setPinInput(e.target.value.replace(/\D/g, '').slice(0, 4)); setPinError(false); }}
-                placeholder="Enter 4-digit PIN"
-                maxLength={4}
-                className="text-center text-2xl tracking-widest"
-                onKeyDown={(e) => { if (e.key === 'Enter' && pinInput.length === 4) verifyPin(); }}
-                data-testid="input-pin"
-              />
-              {pinError && <p className="text-destructive text-sm">Incorrect PIN. Please try again.</p>}
-            </div>
-            <Button onClick={verifyPin} disabled={pinInput.length !== 4 || verifying} className="w-full" data-testid="button-verify-pin">{verifying && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Enter</Button>
+    <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-5 sm:p-8">
+      <div className="w-full max-w-md rounded-2xl border border-card-border bg-card p-6 sm:p-8 shadow-sm text-center">
+        <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-white font-bold text-2xl mx-auto shadow-md ring-2 ring-card" style={{ backgroundColor: sibling.color }}>{getInitials(sibling.name)}</div>
+        <div className="mt-6">
+          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-primary">Private rankings</p>
+          <h1 className="mt-2 font-serif text-3xl font-bold tracking-tight">{sibling.name}</h1>
+          <p className="mt-3 text-base leading-relaxed text-muted-foreground">Enter your 4-digit PIN to open your private list. Only you can see what's inside.</p>
+        </div>
+        <div className="mt-7 space-y-4">
+          <div className="space-y-2 text-left">
+            <Label htmlFor="pin-input" className="flex items-center gap-2 justify-center text-base"><Lock className="w-4 h-4 text-accent" /> Private PIN</Label>
+            <Input
+              id="pin-input"
+              type="password"
+              inputMode="numeric"
+              autoComplete="off"
+              value={pinInput}
+              onChange={(e) => { setPinInput(e.target.value.replace(/\D/g, '').slice(0, 4)); setPinError(false); }}
+              placeholder="••••"
+              maxLength={4}
+              className="text-center text-2xl tracking-[0.5em] min-h-12"
+              onKeyDown={(e) => { if (e.key === 'Enter' && pinInput.length === 4) verifyPin(); }}
+              data-testid="input-pin"
+            />
+            {pinError && <p className="text-destructive text-sm text-center">Incorrect PIN. Please try again.</p>}
           </div>
-          <div className="pt-4 border-t"><Link href="/"><Button variant="ghost" size="sm" data-testid="button-back-home"><ArrowLeft className="w-4 h-4 mr-2" />Back to Home</Button></Link></div>
-        </CardContent>
-      </Card>
+          <Button onClick={verifyPin} disabled={pinInput.length !== 4 || verifying} size="lg" className="w-full min-h-12 px-8 text-base shadow-md" data-testid="button-verify-pin">{verifying && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Enter</Button>
+        </div>
+        <div className="mt-6 inline-flex items-center gap-2 rounded-full bg-accent/12 px-4 py-1.5 text-sm font-medium text-accent">
+          <ShieldCheck className="w-4 h-4" /> Private — only you see this
+        </div>
+        <div className="mt-6 pt-6 border-t border-border"><Link href="/"><Button variant="ghost" className="min-h-12 text-muted-foreground hover:text-foreground" data-testid="button-back-home"><ArrowLeft className="w-4 h-4 mr-2" />Back to Home</Button></Link></div>
+      </div>
     </div>
   );
 
@@ -319,13 +323,13 @@ export default function SiblingPage() {
     const suggestedPickId = sortedUnpicked[0]?.id;
 
     return (
-      <div className="min-h-screen bg-background">
-        <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-          <div className="container mx-auto px-4 py-4 flex items-center gap-3">
-            <Link href="/"><Button variant="ghost" size="icon"><ArrowLeft className="w-5 h-5" /></Button></Link>
-            <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold" style={{ backgroundColor: sibling.color }}>{getInitials(sibling.name)}</div>
-            <div>
-              <span className="font-serif text-xl font-semibold">{sibling.name}</span>
+      <div className="min-h-screen bg-background text-foreground">
+        <header className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur-md">
+          <div className="mx-auto max-w-4xl px-5 sm:px-8 py-4 flex items-center gap-3">
+            <Link href="/" aria-label="Evenkeep home"><Button variant="ghost" size="icon" className="min-h-12 min-w-12"><ArrowLeft className="w-5 h-5" /></Button></Link>
+            <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm ring-2 ring-card shrink-0" style={{ backgroundColor: sibling.color }}>{getInitials(sibling.name)}</div>
+            <div className="min-w-0">
+              <span className="font-serif text-lg font-semibold truncate block">{sibling.name}</span>
               <p className="text-sm text-muted-foreground">
                 {draftState.isComplete ? "Draft complete" : `Round ${draftState.currentRound}, Pick #${draftState.currentPickIndex + 1}`}
               </p>
@@ -333,62 +337,53 @@ export default function SiblingPage() {
           </div>
         </header>
 
-        <main className="container mx-auto px-4 py-6 max-w-4xl space-y-6">
+        <main className="mx-auto max-w-4xl px-5 sm:px-8 py-8 sm:py-12 space-y-6">
           {draftState.isComplete ? (
-            <Card className="border-2 border-accent">
-              <CardContent className="py-8 text-center space-y-3">
-                <Trophy className="w-12 h-12 mx-auto text-accent-foreground" />
-                <h2 className="font-serif text-3xl font-bold">The draft is complete!</h2>
-                <p className="text-muted-foreground">Here's everything you picked:</p>
-              </CardContent>
-            </Card>
+            <div className="rounded-2xl border border-accent/40 bg-accent/[0.06] p-8 text-center shadow-sm">
+              <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-accent/12 text-accent"><Trophy className="w-6 h-6" /></span>
+              <h2 className="mt-4 font-serif text-3xl sm:text-4xl font-bold tracking-tight">The draft is complete!</h2>
+              <p className="mt-3 text-base leading-relaxed text-muted-foreground">Here's everything you picked:</p>
+            </div>
           ) : sibling.optedOut ? (
-            <Card className="border-2 border-muted">
-              <CardContent className="py-6 space-y-2 text-center">
-                <Badge variant="secondary">Opted out</Badge>
-                <h2 className="font-serif text-xl font-semibold">You're done picking.</h2>
-                <p className="text-sm text-muted-foreground">Any remaining items you would have picked will go to donation. Thanks for letting the others know so the draft can keep moving.</p>
-              </CardContent>
-            </Card>
+            <div className="rounded-2xl border border-card-border bg-card p-6 text-center shadow-sm">
+              <Badge variant="secondary" className="rounded-full">Opted out</Badge>
+              <h2 className="mt-3 font-serif text-lg font-semibold">You're done picking.</h2>
+              <p className="mt-2 text-base leading-relaxed text-muted-foreground">Any remaining items you would have picked will go to donation. Thanks for letting the others know so the draft can keep moving.</p>
+            </div>
           ) : isMyTurn ? (
-            <Card className="border-2 shadow-md animate-in fade-in slide-in-from-top-4" style={{ borderColor: sibling.color }}>
-              <CardContent className="py-8 text-center space-y-3">
-                <Badge variant="outline" className="text-xs font-semibold tracking-wider uppercase bg-background shadow-sm">
-                  <Sparkles className="w-3 h-3 mr-1" /> Your Turn
-                </Badge>
-                <h2 className="font-serif text-3xl md:text-4xl font-bold">You're on the clock, {sibling.name.split(" ")[0]}!</h2>
-                <p className="text-muted-foreground max-w-md mx-auto">
-                  Pick any item below. Your highest-ranked available item is highlighted, but you can choose whatever you want.
-                </p>
-              </CardContent>
-            </Card>
+            <div className="rounded-2xl border-2 bg-card p-8 text-center shadow-md animate-in fade-in slide-in-from-top-4" style={{ borderColor: sibling.color }}>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-accent/12 px-4 py-1.5 text-sm font-semibold uppercase tracking-[0.14em] text-accent">
+                <Sparkles className="w-4 h-4" /> Your Turn
+              </span>
+              <h2 className="mt-4 font-serif text-3xl sm:text-4xl font-bold tracking-tight">You're on the clock, {sibling.name.split(" ")[0]}!</h2>
+              <p className="mt-3 text-base leading-relaxed text-muted-foreground max-w-md mx-auto">
+                Pick any item below. Your highest-ranked available item is highlighted, but you can choose whatever you want.
+              </p>
+            </div>
           ) : (
-            <Card>
-              <CardContent className="py-6 space-y-3">
-                <div className="flex items-center gap-3">
-                  <Clock className="w-6 h-6 text-muted-foreground" />
-                  <div>
-                    <h2 className="font-serif text-xl font-semibold">Waiting for your turn</h2>
-                    <p className="text-sm text-muted-foreground">
-                      {draftState.currentPickerName ? (
-                        <><span className="font-semibold" style={{ color: draftState.currentPickerColor || undefined }}>{draftState.currentPickerName}</span> is picking now.</>
-                      ) : "Draft is starting..."}
-                    </p>
-                  </div>
+            <div className="rounded-2xl border border-card-border bg-card p-6 shadow-sm space-y-3">
+              <div className="flex items-center gap-4">
+                <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0"><Clock className="w-6 h-6" /></span>
+                <div>
+                  <h2 className="font-serif text-lg font-semibold">Waiting for your turn</h2>
+                  <p className="text-base text-muted-foreground">
+                    {draftState.currentPickerName ? (
+                      <><span className="font-semibold" style={{ color: draftState.currentPickerColor || undefined }}>{draftState.currentPickerName}</span> is picking now.</>
+                    ) : "Draft is starting..."}
+                  </p>
                 </div>
-                {sibling.draftOrder > 0 && (
-                  <p className="text-xs text-muted-foreground">You're pick #{sibling.draftOrder} in the order. This page will update automatically when it's your turn.</p>
-                )}
-              </CardContent>
-            </Card>
+              </div>
+              {sibling.draftOrder > 0 && (
+                <p className="text-sm text-muted-foreground">You're pick #{sibling.draftOrder} in the order. This page will update automatically when it's your turn.</p>
+              )}
+            </div>
           )}
 
           {draftState.isActive && !draftState.isComplete && !sibling.optedOut && (
             <div className="flex justify-center">
               <Button
                 variant="ghost"
-                size="sm"
-                className="text-muted-foreground hover:text-foreground"
+                className="min-h-12 text-muted-foreground hover:text-foreground"
                 onClick={() => {
                   if (confirm(`Are you done picking? Your future turns will be skipped and any items you would have picked will go to donation. This can't be undone without the admin resetting the draft.`)) {
                     optOutMutation.mutate();
@@ -405,29 +400,27 @@ export default function SiblingPage() {
 
           {!draftState.isComplete && sortedUnpicked.length > 0 && (
             <div>
-              <h3 className="font-serif text-lg font-semibold mb-3">{isMyTurn ? "Available to pick" : "Still available"}</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <h3 className="font-serif text-xl font-semibold mb-4">{isMyTurn ? "Available to pick" : "Still available"}</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 {sortedUnpicked.map((item) => {
                   const isSuggested = isMyTurn && item.id === suggestedPickId;
                   return (
-                    <Card
+                    <div
                       key={item.id}
-                      className={`overflow-hidden transition-all ${isMyTurn ? "cursor-pointer hover:shadow-lg hover:-translate-y-0.5" : "opacity-80"} ${isSuggested ? "ring-2 ring-primary shadow-md" : ""}`}
+                      className={`rounded-2xl border border-card-border bg-card p-3 shadow-sm transition-all ${isMyTurn ? "cursor-pointer hover-elevate" : "opacity-80"} ${isSuggested ? "ring-2 ring-primary shadow-md" : ""}`}
                       onClick={() => { if (isMyTurn) setPickingItem(item); }}
                       data-testid={`available-item-${item.id}`}
                     >
-                      <div className="aspect-square bg-muted relative">
+                      <div className="aspect-square rounded-xl overflow-hidden bg-secondary relative shadow-sm">
                         <ItemImage item={item} size="lg" />
                         {isSuggested && (
-                          <Badge className="absolute top-2 left-2">
+                          <Badge className="absolute top-2 left-2 rounded-full shadow-sm">
                             <Sparkles className="w-3 h-3 mr-1" /> Top pick
                           </Badge>
                         )}
                       </div>
-                      <CardContent className="p-3">
-                        <h4 className="font-medium text-sm truncate">{item.name}</h4>
-                      </CardContent>
-                    </Card>
+                      <h4 className="mt-3 font-serif text-base font-semibold truncate">{item.name}</h4>
+                    </div>
                   );
                 })}
               </div>
@@ -436,16 +429,14 @@ export default function SiblingPage() {
 
           {myItems.length > 0 && (
             <div>
-              <h3 className="font-serif text-lg font-semibold mb-3">Your picks so far ({myItems.length})</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <h3 className="font-serif text-xl font-semibold mb-4">Your picks so far ({myItems.length})</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                 {myItems.map((item) => (
-                  <Card key={item.id} className="overflow-hidden" data-testid={`my-item-${item.id}`}>
-                    <div className="aspect-square bg-muted"><ItemImage item={item} size="lg" /></div>
-                    <CardContent className="p-3">
-                      <h4 className="font-medium text-sm truncate">{item.name}</h4>
-                      <p className="text-xs text-muted-foreground">Round {item.pickRound}</p>
-                    </CardContent>
-                  </Card>
+                  <div key={item.id} className="rounded-2xl border border-card-border bg-card p-3 shadow-sm" data-testid={`my-item-${item.id}`}>
+                    <div className="aspect-square rounded-xl overflow-hidden bg-secondary shadow-sm"><ItemImage item={item} size="lg" /></div>
+                    <h4 className="mt-3 font-serif text-base font-semibold truncate">{item.name}</h4>
+                    <p className="text-sm text-accent font-medium">Round {item.pickRound}</p>
+                  </div>
                 ))}
               </div>
             </div>
@@ -460,15 +451,15 @@ export default function SiblingPage() {
             </DialogHeader>
             {pickingItem && (
               <div className="space-y-4 py-2">
-                <div className="aspect-video bg-muted rounded-md overflow-hidden"><ItemImage item={pickingItem} size="lg" /></div>
-                <h3 className="font-semibold text-xl text-center">{pickingItem.name}</h3>
-                {pickingItem.description && <p className="text-sm text-muted-foreground text-center">{pickingItem.description}</p>}
+                <div className="aspect-video bg-secondary rounded-xl overflow-hidden shadow-sm"><ItemImage item={pickingItem} size="lg" /></div>
+                <h3 className="font-serif text-xl font-semibold text-center">{pickingItem.name}</h3>
+                {pickingItem.description && <p className="text-base leading-relaxed text-muted-foreground text-center">{pickingItem.description}</p>}
                 <div className="flex gap-3 pt-2">
-                  <Button variant="outline" className="flex-1" onClick={() => setPickingItem(null)}>Cancel</Button>
+                  <Button variant="outline" className="flex-1 min-h-12" onClick={() => setPickingItem(null)}>Cancel</Button>
                   <Button
                     onClick={() => makePickMutation.mutate(pickingItem.id)}
                     disabled={makePickMutation.isPending}
-                    className="flex-1"
+                    className="flex-1 min-h-12 text-base shadow-md"
                     style={{ backgroundColor: sibling.color }}
                     data-testid="button-confirm-my-pick"
                   >
@@ -492,23 +483,24 @@ export default function SiblingPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-3">
-          <Link href="/"><Button variant="ghost" size="icon" data-testid="button-back"><ArrowLeft className="w-5 h-5" /></Button></Link>
-          <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold" style={{ backgroundColor: sibling.color }}>{getInitials(sibling.name)}</div>
-          <div><span className="font-serif text-xl font-semibold">{sibling.name}</span><p className="text-sm text-muted-foreground">Item Rankings</p></div>
+    <div className="min-h-screen bg-background text-foreground">
+      <header className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur-md">
+        <div className="mx-auto max-w-4xl px-5 sm:px-8 py-4 flex items-center gap-3">
+          <Link href="/" aria-label="Evenkeep home"><Button variant="ghost" size="icon" className="min-h-12 min-w-12" data-testid="button-back"><ArrowLeft className="w-5 h-5" /></Button></Link>
+          <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold shadow-sm ring-2 ring-card shrink-0" style={{ backgroundColor: sibling.color }}>{getInitials(sibling.name)}</div>
+          <div className="min-w-0 flex-1"><span className="font-serif text-lg font-semibold truncate block">{sibling.name}</span><p className="text-sm text-muted-foreground">Your private rankings</p></div>
+          <span className="hidden sm:inline-flex items-center gap-1.5 rounded-full bg-accent/12 px-3 py-1.5 text-sm font-medium text-accent shrink-0"><ShieldCheck className="w-4 h-4" /> Only you see this</span>
         </div>
       </header>
-      <div className="container mx-auto px-4 py-6">
-        <div className="flex items-center gap-2 mb-8" data-testid="step-progress">
+      <div className="mx-auto max-w-4xl px-5 sm:px-8 py-8 sm:py-12">
+        <div className="flex items-center gap-2 mb-10" data-testid="step-progress">
           {steps.map((step, i) => (
             <div key={step.num} className="flex items-center gap-2 flex-1">
               <button onClick={() => { if (step.num <= 2 && isSubmitted) return; setCurrentStep(step.num); }}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors w-full ${currentStep === step.num ? "bg-primary text-primary-foreground" : step.done ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400" : "bg-muted text-muted-foreground"}`}
+                className={`flex items-center gap-2 px-3 min-h-12 rounded-xl transition-colors w-full ${currentStep === step.num ? "bg-primary text-primary-foreground shadow-sm" : step.done ? "bg-accent/12 text-accent" : "bg-secondary text-muted-foreground"}`}
                 disabled={step.num <= 2 && isSubmitted} data-testid={`step-button-${step.num}`}>
                 {step.done && currentStep !== step.num ? <CheckCircle2 className="w-5 h-5 shrink-0" /> : <Circle className="w-5 h-5 shrink-0" />}
-                <span className="text-sm font-medium truncate">{step.label}</span>
+                <span className="text-sm font-semibold truncate">{step.label}</span>
               </button>
               {i < steps.length - 1 && <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
             </div>
@@ -526,38 +518,40 @@ function Step1RateItems({ items, ratingMap, ratedCount, totalItems, onRate, isSu
   const progressPct = totalItems > 0 ? (ratedCount / totalItems) * 100 : 0;
   return (
     <div>
-      <div className="mb-6"><h2 className="font-serif text-2xl font-semibold">Rate the Items</h2><p className="text-muted-foreground text-sm mt-1">Give each item 1–5 stars. Click the same star again to clear it. Skip items you don't want — they won't appear in your rankings.</p></div>
       <div className="mb-6">
-        <div className="flex items-center justify-between text-sm mb-2"><span className="text-muted-foreground">{ratedCount} of {totalItems} rated</span><span className="font-medium">{Math.round(progressPct)}%</span></div>
-        <div className="w-full h-3 bg-muted rounded-full overflow-hidden"><div className="h-full bg-primary rounded-full transition-all duration-300" style={{ width: `${progressPct}%` }} /></div>
+        <p className="text-sm font-semibold uppercase tracking-[0.14em] text-primary">Step 1 of 3</p>
+        <h2 className="mt-2 font-serif text-3xl sm:text-4xl font-bold tracking-tight">Rate the items</h2>
+        <p className="mt-3 text-base leading-relaxed text-muted-foreground max-w-2xl">Give each item 1–5 stars. Tap the same star again to clear it. Skip anything you don't want — it won't appear in your rankings. Take your time; there's no rush.</p>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      <div className="mb-8">
+        <div className="flex items-center justify-between text-sm mb-2"><span className="text-muted-foreground">{ratedCount} of {totalItems} rated</span><span className="font-semibold text-foreground">{Math.round(progressPct)}%</span></div>
+        <div className="w-full h-3 bg-secondary rounded-full overflow-hidden"><div className="h-full bg-primary rounded-full transition-all duration-300" style={{ width: `${progressPct}%` }} /></div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {items.map((item) => {
           const currentRating = ratingMap.get(item.id)?.rating ?? 0;
           return (
-            <Card key={item.id} className={`overflow-hidden ${currentRating > 0 ? "ring-2 ring-primary/30" : ""}`} data-testid={`rate-item-${item.id}`}>
-              <div className="aspect-square bg-muted relative overflow-hidden">
+            <div key={item.id} className={`rounded-2xl border bg-card p-4 shadow-sm ${currentRating > 0 ? "border-primary/40 ring-1 ring-primary/20" : "border-card-border"}`} data-testid={`rate-item-${item.id}`}>
+              <div className="aspect-square rounded-xl overflow-hidden bg-secondary relative shadow-sm">
                 <ItemImage item={item} size="lg" />
-                {currentRating > 0 && <div className="absolute top-2 right-2 pointer-events-none"><Badge className="bg-primary text-primary-foreground">{currentRating}<Star className="w-3 h-3 ml-0.5 fill-current" /></Badge></div>}
-                {item.hasAudio && <Badge className="absolute top-2 left-2 gap-1 pointer-events-none" variant="secondary"><Volume2 className="w-3 h-3" /></Badge>}
+                {currentRating > 0 && <div className="absolute top-2 right-2 pointer-events-none"><Badge className="bg-primary text-primary-foreground rounded-full shadow-sm">{currentRating}<Star className="w-3 h-3 ml-0.5 fill-current" /></Badge></div>}
+                {item.hasAudio && <Badge className="absolute top-2 left-2 gap-1 pointer-events-none rounded-full" variant="secondary"><Volume2 className="w-3 h-3" /></Badge>}
               </div>
-              <CardContent className="p-3">
-                <h3 className="font-medium text-sm truncate mb-2">{item.name}</h3>
-                {item.description && <p className="text-xs text-muted-foreground line-clamp-1 mb-2">{item.description}</p>}
-                <div className="flex gap-0.5 justify-center">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <button key={star} onClick={() => onRate(item.id, star)} disabled={isSubmitted} className="p-1 hover:scale-125 transition-transform disabled:opacity-50" title={star === currentRating ? "Click to clear" : `Rate ${star} stars`} data-testid={`star-${item.id}-${star}`}>
-                      <Star className={`w-5 h-5 ${star <= currentRating ? "fill-amber-400 text-amber-400" : "text-muted-foreground/40"} ${star === currentRating ? "ring-1 ring-amber-500 rounded-full" : ""}`} />
-                    </button>
-                  ))}
-                </div>
-                {item.hasAudio && <audio controls className="w-full h-6 mt-2" src={`/api/items/${item.id}/audio`} data-testid={`audio-${item.id}`}>Your browser does not support audio playback.</audio>}
-              </CardContent>
-            </Card>
+              <h3 className="mt-4 font-serif text-lg font-semibold truncate">{item.name}</h3>
+              {item.description && <p className="mt-1 text-sm text-muted-foreground line-clamp-1">{item.description}</p>}
+              <div className="mt-3 flex gap-1 justify-center">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button key={star} onClick={() => onRate(item.id, star)} disabled={isSubmitted} className="p-2 min-h-12 flex items-center justify-center hover:scale-110 active:scale-95 transition-transform disabled:opacity-50" title={star === currentRating ? "Tap to clear" : `Rate ${star} stars`} data-testid={`star-${item.id}-${star}`}>
+                    <Star className={`w-7 h-7 ${star <= currentRating ? "fill-primary text-primary" : "text-muted-foreground/40"}`} />
+                  </button>
+                ))}
+              </div>
+              {item.hasAudio && <audio controls className="w-full h-8 mt-3" src={`/api/items/${item.id}/audio`} data-testid={`audio-${item.id}`}>Your browser does not support audio playback.</audio>}
+            </div>
           );
         })}
       </div>
-      <div className="mt-8 flex justify-end"><Button onClick={onNext} size="lg" className="gap-2" data-testid="button-next-step-2">Next: Sort Rankings<ChevronRight className="w-5 h-5" /></Button></div>
+      <div className="mt-10 flex justify-end"><Button onClick={onNext} size="lg" className="gap-2 min-h-12 px-8 text-base shadow-md" data-testid="button-next-step-2">Next: Sort Rankings<ChevronRight className="w-5 h-5" /></Button></div>
     </div>
   );
 }
@@ -567,21 +561,19 @@ function SortableItem({ item, isSubmitted }: { item: ItemResponse & { ratingId: 
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.7 : 1, zIndex: isDragging ? 1 : 0, position: 'relative' as const };
   return (
     <div ref={setNodeRef} style={style}>
-      <Card className={`transition-shadow ${isDragging ? "shadow-xl border-primary ring-1 ring-primary" : ""}`} data-testid={`sort-item-${item.id}`}>
-        <CardContent className="p-3">
-          <div className="flex items-center gap-3">
-            {!isSubmitted && (
-              <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-2 -ml-2 touch-none">
-                <GripVertical className="w-5 h-5 text-muted-foreground shrink-0" />
-              </div>
-            )}
-            <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0"><span className="font-semibold text-primary text-sm">{item.rank}</span></div>
-            <div className="w-12 h-12 rounded-md overflow-hidden shrink-0"><ItemImage item={item} size="sm" /></div>
-            <div className="flex-1 min-w-0"><h3 className="font-medium truncate">{item.name}</h3>{item.description && <p className="text-xs text-muted-foreground truncate">{item.description}</p>}</div>
-            <div className="flex gap-0.5 shrink-0">{Array.from({ length: item.rating }).map((_, i) => <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />)}</div>
-          </div>
-        </CardContent>
-      </Card>
+      <div className={`rounded-2xl border bg-card p-3 shadow-sm transition-shadow ${isDragging ? "shadow-lg border-primary ring-1 ring-primary" : "border-card-border"}`} data-testid={`sort-item-${item.id}`}>
+        <div className="flex items-center gap-3">
+          {!isSubmitted && (
+            <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-2 -ml-1 min-h-12 flex items-center touch-none text-muted-foreground">
+              <GripVertical className="w-5 h-5 shrink-0" />
+            </div>
+          )}
+          <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0"><span className="font-serif font-bold text-primary text-base">{item.rank}</span></div>
+          <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 shadow-sm"><ItemImage item={item} size="sm" /></div>
+          <div className="flex-1 min-w-0"><h3 className="font-serif text-base font-semibold truncate">{item.name}</h3>{item.description && <p className="text-sm text-muted-foreground truncate">{item.description}</p>}</div>
+          <div className="flex gap-0.5 shrink-0">{Array.from({ length: item.rating }).map((_, i) => <Star key={i} className="w-4 h-4 fill-primary text-primary" />)}</div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -595,9 +587,15 @@ function Step2SortAll({ rankedList, onDragEnd, isSubmitted, isInitializing, onNe
   if (isInitializing) return <div className="flex items-center justify-center py-24"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>;
   if (rankedList.length === 0) return (
     <div>
-      <div className="mb-6"><h2 className="font-serif text-2xl font-semibold">Sort Your Rankings</h2></div>
-      <Card><CardContent className="py-12 text-center"><Star className="w-12 h-12 mx-auto text-muted-foreground/30 mb-4" /><p className="text-muted-foreground">No items rated yet. Go back and rate some items first.</p></CardContent></Card>
-      <div className="mt-8"><Button variant="outline" onClick={onBack} size="lg"><ArrowLeft className="w-5 h-5 mr-2" />Back</Button></div>
+      <div className="mb-6">
+        <p className="text-sm font-semibold uppercase tracking-[0.14em] text-primary">Step 2 of 3</p>
+        <h2 className="mt-2 font-serif text-3xl sm:text-4xl font-bold tracking-tight">Sort your rankings</h2>
+      </div>
+      <div className="rounded-2xl border border-card-border bg-card p-10 text-center shadow-sm">
+        <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary"><Star className="w-6 h-6" /></span>
+        <p className="mt-4 text-base leading-relaxed text-muted-foreground">No items rated yet. Go back and rate some items first.</p>
+      </div>
+      <div className="mt-10"><Button variant="outline" onClick={onBack} size="lg" className="min-h-12 px-8 text-base"><ArrowLeft className="w-5 h-5 mr-2" />Back</Button></div>
     </div>
   );
 
@@ -611,10 +609,14 @@ function Step2SortAll({ rankedList, onDragEnd, isSubmitted, isInitializing, onNe
 
   return (
     <div>
-      <div className="mb-6"><h2 className="font-serif text-2xl font-semibold">Sort Your Rankings</h2><p className="text-muted-foreground text-sm mt-1">Drag items into your personal priority order. Your #1 pick is what you want most.</p></div>
+      <div className="mb-6">
+        <p className="text-sm font-semibold uppercase tracking-[0.14em] text-primary">Step 2 of 3</p>
+        <h2 className="mt-2 font-serif text-3xl sm:text-4xl font-bold tracking-tight">Sort your rankings</h2>
+        <p className="mt-3 text-base leading-relaxed text-muted-foreground max-w-2xl">Drag items into your personal priority order. Your #1 pick is what you want most. This stays completely private.</p>
+      </div>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={rankedList.map(i => i.ratingId)} strategy={verticalListSortingStrategy}>
-          <div className="space-y-1">
+          <div className="space-y-2">
             {renderNodes.map((node) => {
               if (node.type === "divider") return <TierDivider key={node.key} stars={node.stars} />;
               return <SortableItem key={node.item.ratingId} item={node.item} isSubmitted={isSubmitted} />;
@@ -622,9 +624,9 @@ function Step2SortAll({ rankedList, onDragEnd, isSubmitted, isInitializing, onNe
           </div>
         </SortableContext>
       </DndContext>
-      <div className="mt-8 flex justify-between">
-        <Button variant="outline" onClick={onBack} size="lg" data-testid="button-back-step-1"><ArrowLeft className="w-5 h-5 mr-2" />Back</Button>
-        <Button onClick={onNext} size="lg" className="gap-2" data-testid="button-next-step-3">Next: Review & Submit<ChevronRight className="w-5 h-5" /></Button>
+      <div className="mt-10 flex justify-between gap-3">
+        <Button variant="outline" onClick={onBack} size="lg" className="min-h-12 px-6 sm:px-8 text-base" data-testid="button-back-step-1"><ArrowLeft className="w-5 h-5 mr-2" />Back</Button>
+        <Button onClick={onNext} size="lg" className="gap-2 min-h-12 px-6 sm:px-8 text-base shadow-md" data-testid="button-next-step-3">Next: Review & Submit<ChevronRight className="w-5 h-5" /></Button>
       </div>
     </div>
   );
@@ -633,31 +635,33 @@ function Step2SortAll({ rankedList, onDragEnd, isSubmitted, isInitializing, onNe
 function Step3ReviewSubmit({ rankedList, isSubmitted, onSubmit, onUnlock, submitting, unlocking, onBack }: { rankedList: (ItemResponse & { ratingId: string; rating: number; rank: number })[]; isSubmitted: boolean; onSubmit: () => void; onUnlock: () => void; submitting: boolean; unlocking: boolean; onBack: () => void; }) {
   return (
     <div>
-      <div className="mb-6"><h2 className="font-serif text-2xl font-semibold">{isSubmitted ? "Rankings Submitted" : "Review Your Rankings"}</h2><p className="text-muted-foreground text-sm mt-1">{isSubmitted ? "Your rankings are locked in. You can unlock them to make changes." : "This is your final priority order. Go back to adjust if anything looks off."}</p></div>
+      <div className="mb-6">
+        <p className="text-sm font-semibold uppercase tracking-[0.14em] text-primary">Step 3 of 3</p>
+        <h2 className="mt-2 font-serif text-3xl sm:text-4xl font-bold tracking-tight">{isSubmitted ? "Rankings submitted" : "Review your rankings"}</h2>
+        <p className="mt-3 text-base leading-relaxed text-muted-foreground max-w-2xl">{isSubmitted ? "Your rankings are locked in and stay private. You can unlock them anytime to make changes." : "This is your final priority order. Go back to adjust if anything looks off — no one else sees this."}</p>
+      </div>
       {isSubmitted && (
-        <Card className="mb-6 bg-green-50 border-green-200 dark:bg-green-900/20 dark:border-green-800">
-          <CardContent className="py-4"><div className="flex items-center gap-3"><CheckCircle2 className="w-6 h-6 text-green-600 dark:text-green-400 shrink-0" /><div><p className="font-medium text-green-800 dark:text-green-300">Rankings locked in</p><p className="text-sm text-green-600 dark:text-green-400">Your picks are set for the draft.</p></div></div></CardContent>
-        </Card>
+        <div className="mb-6 rounded-2xl border border-accent/30 bg-accent/[0.08] p-5 shadow-sm">
+          <div className="flex items-center gap-3"><CheckCircle2 className="w-6 h-6 text-accent shrink-0" /><div><p className="font-semibold text-accent">Rankings locked in</p><p className="text-base text-accent/90">Your picks are set for the draft.</p></div></div>
+        </div>
       )}
       <div className="space-y-2">
         {rankedList.map((item) => (
-          <Card key={item.ratingId} data-testid={`review-item-${item.id}`}>
-            <CardContent className="p-3">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0"><span className="font-semibold text-primary text-sm">{item.rank}</span></div>
-                <div className="w-12 h-12 rounded-md overflow-hidden shrink-0"><ItemImage item={item} size="sm" /></div>
-                <div className="flex-1 min-w-0"><h3 className="font-medium truncate">{item.name}</h3></div>
-                <div className="flex gap-0.5 shrink-0">{Array.from({ length: item.rating }).map((_, i) => <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />)}</div>
-              </div>
-            </CardContent>
-          </Card>
+          <div key={item.ratingId} className="rounded-2xl border border-card-border bg-card p-3 shadow-sm" data-testid={`review-item-${item.id}`}>
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0"><span className="font-serif font-bold text-primary text-base">{item.rank}</span></div>
+              <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 shadow-sm"><ItemImage item={item} size="sm" /></div>
+              <div className="flex-1 min-w-0"><h3 className="font-serif text-base font-semibold truncate">{item.name}</h3></div>
+              <div className="flex gap-0.5 shrink-0">{Array.from({ length: item.rating }).map((_, i) => <Star key={i} className="w-4 h-4 fill-primary text-primary" />)}</div>
+            </div>
+          </div>
         ))}
       </div>
-      <div className="mt-8 flex justify-between">
-        {!isSubmitted && <Button variant="outline" onClick={onBack} size="lg" data-testid="button-back-step-2"><ArrowLeft className="w-5 h-5 mr-2" />Back</Button>}
+      <div className="mt-10 flex justify-between gap-3">
+        {!isSubmitted && <Button variant="outline" onClick={onBack} size="lg" className="min-h-12 px-6 sm:px-8 text-base" data-testid="button-back-step-2"><ArrowLeft className="w-5 h-5 mr-2" />Back</Button>}
         {isSubmitted
-          ? <Button variant="outline" onClick={onUnlock} disabled={unlocking} size="lg" className="gap-2 ml-auto" data-testid="button-unlock">{unlocking ? <Loader2 className="w-5 h-5 animate-spin" /> : <Unlock className="w-5 h-5" />}Unlock Rankings</Button>
-          : <Button onClick={onSubmit} disabled={submitting} size="lg" className="gap-2" data-testid="button-submit-rankings">{submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}Submit Rankings</Button>
+          ? <Button variant="outline" onClick={onUnlock} disabled={unlocking} size="lg" className="gap-2 ml-auto min-h-12 px-6 sm:px-8 text-base" data-testid="button-unlock">{unlocking ? <Loader2 className="w-5 h-5 animate-spin" /> : <Unlock className="w-5 h-5" />}Unlock Rankings</Button>
+          : <Button onClick={onSubmit} disabled={submitting} size="lg" className="gap-2 min-h-12 px-8 text-base shadow-md" data-testid="button-submit-rankings">{submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}Submit Rankings</Button>
         }
       </div>
     </div>

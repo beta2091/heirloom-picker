@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Logo } from "@/components/logo";
 import { ArrowLeft, Trophy, Loader2, Image as ImageIcon, Volume2, Heart, Download, Image as Img, Undo2 } from "lucide-react";
 import { getInitials } from "@/lib/utils-initials";
 import JSZip from "jszip";
@@ -209,34 +210,36 @@ export default function Results() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-3">
+    <div className="min-h-screen bg-background text-foreground">
+      <header className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-8">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Link href="/">
               <Button variant="ghost" size="icon" data-testid="button-back-home">
                 <ArrowLeft className="w-5 h-5" />
               </Button>
             </Link>
-            <div className="w-10 h-10 rounded-md bg-primary flex items-center justify-center">
-              <Trophy className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <span className="font-serif text-xl font-semibold">Draft Results</span>
+            <Link href="/" className="rounded-md" aria-label="Evenkeep home">
+              <Logo />
+            </Link>
+            <span className="hidden text-sm font-semibold uppercase tracking-[0.14em] text-primary sm:inline">
+              Results
+            </span>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             {pickedItems.length > 0 && (
               <>
-                <Button variant="outline" onClick={handleDownloadAll} data-testid="button-download-all">
+                <Button variant="outline" onClick={handleDownloadAll} className="min-h-12" data-testid="button-download-all">
                   <Download className="w-4 h-4 mr-2" /> Download CSV
                 </Button>
-                <Button variant="outline" onClick={handleDownloadAllImages} disabled={zipBusy !== null} data-testid="button-download-all-images">
+                <Button variant="outline" onClick={handleDownloadAllImages} disabled={zipBusy !== null} className="min-h-12" data-testid="button-download-all-images">
                   {zipBusy === "__all__" ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Img className="w-4 h-4 mr-2" />}
                   Download All Photos (ZIP)
                 </Button>
               </>
             )}
             <Link href="/draft">
-              <Button variant="outline" data-testid="link-to-draft">
+              <Button variant="outline" className="min-h-12" data-testid="link-to-draft">
                 Draft Board
               </Button>
             </Link>
@@ -244,39 +247,51 @@ export default function Results() {
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="mx-auto max-w-5xl px-5 sm:px-8 py-8 sm:py-12">
         {pickedItems.length === 0 ? (
-          <Card>
-            <CardContent className="py-16 text-center">
-              <Heart className="w-16 h-16 mx-auto text-muted-foreground mb-6" />
-              <h2 className="font-serif text-2xl font-semibold mb-2">No Picks Yet</h2>
-              <p className="text-muted-foreground mb-6 max-w-md mx-auto">
+          <Card className="mx-auto max-w-xl rounded-2xl border-card-border p-6 shadow-sm">
+            <CardContent className="py-14 text-center">
+              <span className="mx-auto mb-6 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Heart className="h-6 w-6" />
+              </span>
+              <h2 className="font-serif text-2xl font-bold tracking-tight">No picks yet</h2>
+              <p className="mx-auto mt-3 mb-7 max-w-md text-base leading-relaxed text-muted-foreground">
                 The draft hasn't started or no items have been picked yet. Head to the draft board to begin.
               </p>
               <Link href="/draft">
-                <Button data-testid="button-go-to-draft">Go to Draft Board</Button>
+                <Button className="min-h-12 px-8 text-base shadow-md" data-testid="button-go-to-draft">Go to Draft Board</Button>
               </Link>
             </CardContent>
           </Card>
         ) : (
-          <div className="space-y-8">
+          <div className="space-y-10">
+            <div className="max-w-2xl">
+              <p className="text-sm font-semibold uppercase tracking-[0.14em] text-primary">Who kept what</p>
+              <h1 className="mt-3 font-serif text-3xl font-bold tracking-tight sm:text-4xl">
+                Every keepsake found its person
+              </h1>
+              <p className="mt-4 text-base leading-relaxed text-muted-foreground">
+                Here is what each family member will carry forward — chosen fairly, one turn at a time.
+              </p>
+            </div>
+
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {siblings.map((sibling) => {
                 const siblingItems = pickedItems.filter(item => item.pickedBySiblingId === sibling.id);
                 return (
-                  <Card key={sibling.id} data-testid={`results-summary-${sibling.id}`}>
-                    <CardContent className="pt-6">
-                      <div className="flex items-center gap-3 mb-2">
+                  <Card key={sibling.id} className="rounded-2xl border-card-border p-6 shadow-sm" data-testid={`results-summary-${sibling.id}`}>
+                    <CardContent className="p-0">
+                      <div className="flex items-center gap-3">
                         <div
-                          className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shrink-0"
+                          className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shrink-0 shadow-sm"
                           style={{ backgroundColor: sibling.color }}
                         >
                           {getInitials(sibling.name)}
                         </div>
                         <div>
-                          <h3 className="font-semibold text-lg">{sibling.name}</h3>
+                          <h3 className="font-serif text-lg font-semibold">{sibling.name}</h3>
                           <p className="text-sm text-muted-foreground">
-                            {siblingItems.length} item{siblingItems.length !== 1 ? "s" : ""}
+                            {siblingItems.length} item{siblingItems.length !== 1 ? "s" : ""} kept
                           </p>
                         </div>
                       </div>
@@ -302,7 +317,7 @@ export default function Results() {
                     >
                       {getInitials(sibling.name)}
                     </div>
-                    <h2 className="font-serif text-xl font-semibold">{sibling.name}'s Items</h2>
+                    <h2 className="font-serif text-xl font-bold tracking-tight sm:text-2xl">{sibling.name}'s Items</h2>
                     <Badge variant="secondary">{siblingItems.length}</Badge>
                     <div className="ml-auto flex items-center gap-1">
                       <Button
@@ -327,8 +342,8 @@ export default function Results() {
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {siblingItems.map((item) => (
-                      <Card key={item.id} className="overflow-hidden" data-testid={`result-item-${item.id}`}>
-                        <div className="aspect-square bg-muted relative">
+                      <Card key={item.id} className="rounded-2xl border-card-border p-3 shadow-sm" data-testid={`result-item-${item.id}`}>
+                        <div className="aspect-square bg-muted relative rounded-xl overflow-hidden">
                           {item.hasImage ? (
                             <img
                               src={`/api/items/${item.id}/image`}
@@ -341,7 +356,7 @@ export default function Results() {
                               <ImageIcon className="w-12 h-12 text-muted-foreground" />
                             </div>
                           )}
-                          <Badge className="absolute top-2 left-2" variant="secondary">
+                          <Badge className="absolute top-2 left-2 bg-accent text-accent-foreground">
                             Round {item.pickRound}
                           </Badge>
                           {item.hasAudio && (
@@ -350,10 +365,10 @@ export default function Results() {
                             </Badge>
                           )}
                         </div>
-                        <CardContent className="p-3">
-                          <h3 className="font-medium text-sm truncate">{item.name}</h3>
+                        <CardContent className="p-0 pt-3">
+                          <h3 className="font-serif text-base font-semibold leading-snug truncate">{item.name}</h3>
                           {item.description && (
-                            <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
+                            <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
                               {item.description}
                             </p>
                           )}
@@ -370,7 +385,7 @@ export default function Results() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="w-full mt-2 h-7 text-xs"
+                            className="w-full mt-2 h-8 text-xs"
                             onClick={() => unassignMutation.mutate(item.id)}
                             disabled={unassignMutation.isPending}
                             data-testid={`button-unassign-${item.id}`}
@@ -387,16 +402,16 @@ export default function Results() {
 
             {unpickedItems.length > 0 && (
               <section data-testid="results-unpicked">
-                <h2 className="font-serif text-xl font-semibold mb-4 text-muted-foreground">
+                <h2 className="mb-2 font-serif text-xl font-bold tracking-tight text-muted-foreground sm:text-2xl">
                   Remaining Items ({unpickedItems.length})
                 </h2>
-                <p className="text-sm text-muted-foreground mb-4">
+                <p className="text-base text-muted-foreground mb-4">
                   Use the dropdown below any item to assign it to a sibling after the live draft.
                 </p>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {unpickedItems.map((item) => (
-                    <Card key={item.id} className="overflow-hidden" data-testid={`result-unpicked-${item.id}`}>
-                      <div className="aspect-square bg-muted relative">
+                    <Card key={item.id} className="rounded-2xl border-card-border p-3 shadow-sm" data-testid={`result-unpicked-${item.id}`}>
+                      <div className="aspect-square bg-muted relative rounded-xl overflow-hidden">
                         {item.hasImage ? (
                           <img
                             src={`/api/items/${item.id}/image`}
@@ -410,13 +425,13 @@ export default function Results() {
                           </div>
                         )}
                       </div>
-                      <CardContent className="p-3 space-y-2">
-                        <h3 className="font-medium text-sm truncate">{item.name}</h3>
+                      <CardContent className="p-0 pt-3 space-y-2">
+                        <h3 className="font-serif text-base font-semibold leading-snug truncate">{item.name}</h3>
                         <Select
                           value={assignDraft[item.id] || ""}
                           onValueChange={(v) => setAssignDraft(prev => ({ ...prev, [item.id]: v }))}
                         >
-                          <SelectTrigger className="h-8 text-xs" data-testid={`assign-select-${item.id}`}>
+                          <SelectTrigger className="h-9 text-sm" data-testid={`assign-select-${item.id}`}>
                             <SelectValue placeholder="Assign to..." />
                           </SelectTrigger>
                           <SelectContent>
@@ -428,7 +443,7 @@ export default function Results() {
                         <Button
                           size="sm"
                           variant="default"
-                          className="w-full h-7 text-xs"
+                          className="w-full h-9 text-sm"
                           disabled={!assignDraft[item.id] || assignMutation.isPending}
                           onClick={() => {
                             const siblingId = assignDraft[item.id];
@@ -446,6 +461,10 @@ export default function Results() {
                 </div>
               </section>
             )}
+
+            <p className="mx-auto max-w-2xl pt-2 text-center font-serif text-lg italic text-muted-foreground">
+              May every piece be a comfort, and every memory stay close.
+            </p>
           </div>
         )}
       </main>

@@ -10,8 +10,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Logo } from "@/components/logo";
 import { useToast } from "@/hooks/use-toast";
-import { Heart, Plus, Camera, Users, Trash2, ArrowLeft, ExternalLink, Image as ImageIcon, Loader2, Upload, Pencil, Mic, Volume2, X, Lock, Settings, Share, Shield, KeyRound, UserCog, Home, ImagePlus, User, CheckCircle2, Circle, Link2, RefreshCcw } from "lucide-react";
+import { Plus, Camera, Users, Trash2, ArrowLeft, ExternalLink, Image as ImageIcon, Loader2, Upload, Pencil, Mic, Volume2, X, Lock, Settings, Share, Shield, KeyRound, UserCog, Home, ImagePlus, User, CheckCircle2, Circle, Link2, RefreshCcw } from "lucide-react";
 import { getInitials } from "@/lib/utils-initials";
 import { HelpTooltip } from "@/components/help-tooltip";
 import { AdminPinGate } from "@/components/admin-pin-gate";
@@ -63,12 +64,15 @@ function AdminDashboard({ verifiedPin }: { verifiedPin: string }) {
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       <div className="grid md:grid-cols-2 gap-6">
-        <Card>
+        <Card className="rounded-2xl border-card-border shadow-sm">
           <CardHeader>
-            <CardTitle className="font-serif text-xl flex items-center gap-2">
-              <Users className="w-5 h-5 text-primary" /> Family Readiness
+            <CardTitle className="flex items-center gap-3 font-serif text-lg font-semibold">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Users className="h-5 w-5" />
+              </span>
+              Family Readiness
             </CardTitle>
-            <CardDescription>Who has locked in their lists?</CardDescription>
+            <CardDescription className="text-base">Who has locked in their lists?</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {dashboard.siblings.length === 0 ? (
@@ -93,12 +97,15 @@ function AdminDashboard({ verifiedPin }: { verifiedPin: string }) {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="rounded-2xl border-card-border shadow-sm">
           <CardHeader>
-            <CardTitle className="font-serif text-xl flex items-center gap-2">
-              <Share className="w-5 h-5 text-primary" /> Master Draft
+            <CardTitle className="flex items-center gap-3 font-serif text-lg font-semibold">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/12 text-accent">
+                <Share className="h-5 w-5" />
+              </span>
+              Master Draft
             </CardTitle>
-            <CardDescription>Run the draft live for everyone to see</CardDescription>
+            <CardDescription className="text-base">Run the draft live for everyone to see</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col items-center justify-center py-6 text-center">
             {dashboard.draft.isComplete ? (
@@ -123,7 +130,7 @@ function AdminDashboard({ verifiedPin }: { verifiedPin: string }) {
             )}
             <div className="space-y-2">
               <Link href="/draft-master">
-                <Button size="lg" className="w-full gap-2">
+                <Button size="lg" className="min-h-12 w-full gap-2 px-8 text-base shadow-md">
                   Open Master Draft View <ExternalLink className="w-4 h-4" />
                 </Button>
               </Link>
@@ -191,10 +198,15 @@ function FamilySettings({ verifiedPin }: { verifiedPin: string }) {
   };
 
   return (
-    <section className="mt-8 pt-8 border-t">
+    <section className="mt-8 border-t border-border pt-8">
       <div className="mb-6">
-        <h2 className="font-serif text-2xl font-semibold flex items-center gap-2"><Home className="w-6 h-6 text-primary" /> Family Settings</h2>
-        <p className="text-muted-foreground text-sm mt-1">Customize how the app appears to your family</p>
+        <h2 className="flex items-center gap-3 font-serif text-2xl font-bold tracking-tight sm:text-3xl">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Home className="h-5 w-5" />
+          </span>
+          Family Settings
+        </h2>
+        <p className="mt-2 text-base leading-relaxed text-muted-foreground">Customize how the app appears to your family</p>
       </div>
       <div className="space-y-5">
         <div className="grid sm:grid-cols-2 gap-4">
@@ -231,7 +243,7 @@ function FamilySettings({ verifiedPin }: { verifiedPin: string }) {
           </div>
           <input ref={heroPhotoRef} type="file" accept="image/*" className="hidden" onChange={handleHeroPhotoSelect} />
         </div>
-        <Button onClick={handleSave} disabled={saving} className="gap-2" data-testid="button-save-family-settings">
+        <Button onClick={handleSave} disabled={saving} className="min-h-12 gap-2 px-8 text-base shadow-md" data-testid="button-save-family-settings">
           {saving && <Loader2 className="w-4 h-4 animate-spin" />} Save Family Settings
         </Button>
       </div>
@@ -281,15 +293,20 @@ function AdminSettings({ verifiedPin }: { verifiedPin: string }) {
   };
 
   return (
-    <section className="mt-8 pt-8 border-t">
+    <section className="mt-8 border-t border-border pt-8">
       <div className="mb-6">
-        <h2 className="font-serif text-2xl font-semibold flex items-center gap-2"><UserCog className="w-6 h-6 text-primary" /> Admin Settings</h2>
-        <p className="text-muted-foreground text-sm mt-1">Manage admin access and security settings</p>
+        <h2 className="flex items-center gap-3 font-serif text-2xl font-bold tracking-tight sm:text-3xl">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <UserCog className="h-5 w-5" />
+          </span>
+          Admin Settings
+        </h2>
+        <p className="mt-2 text-base leading-relaxed text-muted-foreground">Manage admin access and security settings</p>
       </div>
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Card><CardContent className="pt-6"><div className="flex items-start gap-3"><div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center shrink-0"><Shield className="w-5 h-5 text-primary" /></div><div className="flex-1 min-w-0"><h3 className="font-medium">Current Admin</h3><p className="text-sm text-muted-foreground truncate" data-testid="text-current-admin">{adminStatus?.adminName || "Not set"}</p><Button variant="ghost" size="sm" className="mt-2 gap-1" onClick={() => { setNewNameVal(adminStatus?.adminName || ""); setChangeNameOpen(true); }} data-testid="button-change-admin-name"><Pencil className="w-3 h-3" /> Change Name</Button></div></div></CardContent></Card>
-        <Card><CardContent className="pt-6"><div className="flex items-start gap-3"><div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center shrink-0"><Lock className="w-5 h-5 text-primary" /></div><div className="flex-1 min-w-0"><h3 className="font-medium">Admin PIN</h3><p className="text-sm text-muted-foreground">Change your admin PIN</p><Button variant="ghost" size="sm" className="mt-2 gap-1" onClick={() => setChangePinOpen(true)} data-testid="button-change-admin-pin"><KeyRound className="w-3 h-3" /> Change PIN</Button></div></div></CardContent></Card>
-        <Card><CardContent className="pt-6"><div className="flex items-start gap-3"><div className="w-10 h-10 bg-destructive/10 rounded-full flex items-center justify-center shrink-0"><Settings className="w-5 h-5 text-destructive" /></div><div className="flex-1 min-w-0"><h3 className="font-medium">Transfer Admin</h3><p className="text-sm text-muted-foreground">Reset admin so someone else can set up</p><Button variant="ghost" size="sm" className="mt-2 gap-1 text-destructive" onClick={() => setResetAdminOpen(true)} data-testid="button-reset-admin"><Settings className="w-3 h-3" /> Reset Admin</Button></div></div></CardContent></Card>
+        <Card className="rounded-2xl border-card-border shadow-sm"><CardContent className="pt-6"><div className="flex items-start gap-3"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><Shield className="w-5 h-5" /></div><div className="flex-1 min-w-0"><h3 className="font-serif font-semibold">Current Admin</h3><p className="text-sm text-muted-foreground truncate" data-testid="text-current-admin">{adminStatus?.adminName || "Not set"}</p><Button variant="ghost" size="sm" className="mt-2 gap-1" onClick={() => { setNewNameVal(adminStatus?.adminName || ""); setChangeNameOpen(true); }} data-testid="button-change-admin-name"><Pencil className="w-3 h-3" /> Change Name</Button></div></div></CardContent></Card>
+        <Card className="rounded-2xl border-card-border shadow-sm"><CardContent className="pt-6"><div className="flex items-start gap-3"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><Lock className="w-5 h-5" /></div><div className="flex-1 min-w-0"><h3 className="font-serif font-semibold">Admin PIN</h3><p className="text-sm text-muted-foreground">Change your admin PIN</p><Button variant="ghost" size="sm" className="mt-2 gap-1" onClick={() => setChangePinOpen(true)} data-testid="button-change-admin-pin"><KeyRound className="w-3 h-3" /> Change PIN</Button></div></div></CardContent></Card>
+        <Card className="rounded-2xl border-card-border shadow-sm"><CardContent className="pt-6"><div className="flex items-start gap-3"><div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-destructive/10 text-destructive"><Settings className="w-5 h-5" /></div><div className="flex-1 min-w-0"><h3 className="font-serif font-semibold">Transfer Admin</h3><p className="text-sm text-muted-foreground">Reset admin so someone else can set up</p><Button variant="ghost" size="sm" className="mt-2 gap-1 text-destructive" onClick={() => setResetAdminOpen(true)} data-testid="button-reset-admin"><Settings className="w-3 h-3" /> Reset Admin</Button></div></div></CardContent></Card>
       </div>
 
       <Dialog open={changeNameOpen} onOpenChange={setChangeNameOpen}>
@@ -648,26 +665,29 @@ export default function Admin() {
   return (
     <AdminPinGate title="Admin Access" description="Enter the admin PIN to manage the estate.">
     {(verifiedPin: string) => (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-3">
-            <Link href="/"><Button variant="ghost" size="icon" data-testid="button-back-home"><ArrowLeft className="w-5 h-5" /></Button></Link>
-            <div className="w-10 h-10 rounded-md bg-primary flex items-center justify-center"><Heart className="w-5 h-5 text-primary-foreground" /></div>
-            <span className="font-serif text-xl font-semibold">Manage Estate</span>
+    <div className="min-h-screen bg-background text-foreground">
+      <header className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-8">
+          <div className="flex items-center gap-2">
+            <Link href="/">
+              <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" data-testid="button-back-home"><ArrowLeft className="w-5 h-5" /></Button>
+            </Link>
+            <Link href="/" className="rounded-md" aria-label="Evenkeep home">
+              <Logo />
+            </Link>
           </div>
-          <Link href="/draft"><Button data-testid="link-to-draft">Go to Draft</Button></Link>
+          <Link href="/draft"><Button className="min-h-12 px-6 text-base shadow-md" data-testid="link-to-draft">Go to Draft</Button></Link>
         </div>
       </header>
-      
-      <main className="container mx-auto px-4 py-8 max-w-5xl">
+
+      <main className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-12">
         <Tabs defaultValue="dashboard" className="space-y-8">
-          <div className="flex justify-center border-b pb-1 mb-8 overflow-x-auto">
-            <TabsList className="bg-background border h-auto p-1 max-w-full inline-flex">
-              <TabsTrigger value="dashboard" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary px-4 py-2">Dashboard</TabsTrigger>
-              <TabsTrigger value="family" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary px-4 py-2">Family Members</TabsTrigger>
-              <TabsTrigger value="estate" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary px-4 py-2">Estate Items</TabsTrigger>
-              <TabsTrigger value="settings" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary px-4 py-2">Settings</TabsTrigger>
+          <div className="mb-8 flex justify-center overflow-x-auto">
+            <TabsList className="inline-flex h-auto max-w-full rounded-xl border border-card-border bg-card p-1 shadow-sm">
+              <TabsTrigger value="dashboard" className="rounded-lg px-4 py-2 text-base data-[state=active]:bg-primary/10 data-[state=active]:text-primary">Dashboard</TabsTrigger>
+              <TabsTrigger value="family" className="rounded-lg px-4 py-2 text-base data-[state=active]:bg-primary/10 data-[state=active]:text-primary">Family Members</TabsTrigger>
+              <TabsTrigger value="estate" className="rounded-lg px-4 py-2 text-base data-[state=active]:bg-primary/10 data-[state=active]:text-primary">Estate Items</TabsTrigger>
+              <TabsTrigger value="settings" className="rounded-lg px-4 py-2 text-base data-[state=active]:bg-primary/10 data-[state=active]:text-primary">Settings</TabsTrigger>
             </TabsList>
           </div>
 
@@ -677,12 +697,17 @@ export default function Admin() {
 
           <TabsContent value="family" className="mt-0 outline-none space-y-8 animate-in fade-in duration-300">
             <section>
-              <div className="flex items-center justify-between mb-6">
+              <div className="mb-6 flex items-center justify-between gap-4">
                 <div>
-                  <h2 className="font-serif text-2xl font-semibold flex items-center gap-2"><Users className="w-6 h-6 text-primary" /> Family Members</h2>
-                  <HelpTooltip text="Add each sibling who will participate in the draft. They'll take turns picking items. You can set a PIN for privacy and a color for each person." side="right" />
+                  <h2 className="flex items-center gap-3 font-serif text-2xl font-bold tracking-tight sm:text-3xl">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                      <Users className="h-5 w-5" />
+                    </span>
+                    Family Members
+                    <HelpTooltip text="Add each sibling who will participate in the draft. They'll take turns picking items. You can set a PIN for privacy and a color for each person." side="right" />
+                  </h2>
+                  <p className="mt-2 text-base leading-relaxed text-muted-foreground">Add family members who will participate in the draft</p>
                 </div>
-                <p className="text-muted-foreground text-sm mt-1">Add family members who will participate in the draft</p>
               </div>
               <Dialog open={siblingDialogOpen} onOpenChange={setSiblingDialogOpen}>
                 <DialogTrigger asChild><Button size="sm" className="gap-2" data-testid="button-add-sibling"><Plus className="w-4 h-4" /> Add</Button></DialogTrigger>
@@ -699,13 +724,13 @@ export default function Admin() {
               </Dialog>
 
               {siblingsLoading ? (
-                <Card><CardContent className="py-12 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" /></CardContent></Card>
+                <Card className="rounded-2xl border-card-border shadow-sm"><CardContent className="py-12 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" /></CardContent></Card>
               ) : siblings.length === 0 ? (
-                <Card><CardContent className="py-12 text-center"><Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" /><p className="text-muted-foreground">No family members added yet</p><p className="text-sm text-muted-foreground mt-1">Add siblings to get started</p></CardContent></Card>
+                <Card className="rounded-2xl border-card-border shadow-sm"><CardContent className="py-12 text-center"><span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary"><Users className="h-6 w-6" /></span><p className="text-base text-muted-foreground">No family members added yet</p><p className="text-sm text-muted-foreground mt-1">Add siblings to get started</p></CardContent></Card>
               ) : (
                 <div className="space-y-3">
                   {siblings.map((sibling) => (
-                    <Card key={sibling.id} data-testid={`card-sibling-${sibling.id}`}>
+                    <Card key={sibling.id} className="rounded-2xl border-card-border shadow-sm" data-testid={`card-sibling-${sibling.id}`}>
                       <CardContent className="p-4">
                         <div className="flex items-center gap-4">
                           <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shrink-0" style={{ backgroundColor: sibling.color }}>{getInitials(sibling.name)}</div>
@@ -753,10 +778,15 @@ export default function Admin() {
             <section className="pt-2">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
                 <div>
-                  <h2 className="font-serif text-2xl font-semibold flex items-center gap-2"><Camera className="w-6 h-6 text-primary" /> Items</h2>
-                  <HelpTooltip text="Add items that will be available in the draft. You can add photos, descriptions, and audio stories. Use Bulk Upload to add many photos at once." side="right" />
+                  <h2 className="flex items-center gap-3 font-serif text-2xl font-bold tracking-tight sm:text-3xl">
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                      <Camera className="h-5 w-5" />
+                    </span>
+                    Items
+                    <HelpTooltip text="Add items that will be available in the draft. You can add photos, descriptions, and audio stories. Use Bulk Upload to add many photos at once." side="right" />
+                  </h2>
+                  <p className="mt-2 text-base leading-relaxed text-muted-foreground">Add photos and descriptions of belongings</p>
                 </div>
-                <p className="text-muted-foreground text-sm mt-1">Add photos and descriptions of belongings</p>
               </div>
               <div className="flex gap-2">
                 <input type="file" accept="image/*" multiple ref={bulkFileInputRef} onChange={handleBulkFileSelect} className="hidden" data-testid="input-bulk-upload" />
@@ -838,13 +868,13 @@ export default function Admin() {
               </div>
 
               {itemsLoading ? (
-                <Card><CardContent className="py-12 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" /></CardContent></Card>
+                <Card className="rounded-2xl border-card-border shadow-sm"><CardContent className="py-12 text-center"><Loader2 className="w-8 h-8 animate-spin mx-auto text-muted-foreground" /></CardContent></Card>
               ) : items.length === 0 ? (
-                <Card><CardContent className="py-12 text-center"><Camera className="w-12 h-12 mx-auto text-muted-foreground mb-4" /><p className="text-muted-foreground">No items added yet</p><p className="text-sm text-muted-foreground mt-1">Take photos and add items</p></CardContent></Card>
+                <Card className="rounded-2xl border-card-border shadow-sm"><CardContent className="py-12 text-center"><span className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary"><Camera className="h-6 w-6" /></span><p className="text-base text-muted-foreground">No items added yet</p><p className="text-sm text-muted-foreground mt-1">Take photos and add items</p></CardContent></Card>
               ) : (
                 <div className="grid grid-cols-2 gap-3">
                   {items.map((item) => (
-                    <Card key={item.id} className="overflow-hidden" data-testid={`card-item-${item.id}`}>
+                    <Card key={item.id} className="overflow-hidden rounded-2xl border-card-border shadow-sm" data-testid={`card-item-${item.id}`}>
                       <div className="aspect-square bg-muted relative">
                         {item.hasImage ? <img src={`/api/items/${item.id}/image`} alt={item.name} className="w-full h-full object-cover" loading="lazy" /> : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-12 h-12 text-muted-foreground" /></div>}
                         {item.pickedBySiblingId && <Badge className="absolute top-2 left-2" variant="secondary">Picked</Badge>}
@@ -877,15 +907,20 @@ export default function Admin() {
             <FamilySettings verifiedPin={verifiedPin} />
             <AdminSettings verifiedPin={verifiedPin} />
 
-            <Card className="border-destructive/40">
+            <Card className="rounded-2xl border-destructive/40 shadow-sm">
               <CardHeader>
-                <CardTitle className="font-serif text-xl text-destructive flex items-center gap-2"><Trash2 className="w-5 h-5" /> Danger Zone</CardTitle>
-                <CardDescription>Permanently delete all family members, items, ratings, and draft state. Your admin PIN and family info stay. Use this to start over fresh.</CardDescription>
+                <CardTitle className="flex items-center gap-3 font-serif text-lg font-semibold text-destructive">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+                    <Trash2 className="h-5 w-5" />
+                  </span>
+                  Danger Zone
+                </CardTitle>
+                <CardDescription className="text-base">Permanently delete all family members, items, ratings, and draft state. Your admin PIN and family info stay. Use this to start over fresh.</CardDescription>
               </CardHeader>
               <CardContent>
                 <Dialog open={wipeAllDialogOpen} onOpenChange={setWipeAllDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button variant="destructive" className="gap-2" data-testid="button-wipe-all">
+                    <Button variant="destructive" className="min-h-12 gap-2 px-8 text-base shadow-md" data-testid="button-wipe-all">
                       <Trash2 className="w-4 h-4" /> Clear all data & start fresh
                     </Button>
                   </DialogTrigger>
