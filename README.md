@@ -1,6 +1,7 @@
-# Heirloom Picker
+# Evenkeep
 
-A fair family inheritance draft app — divide belongings with love and fairness.
+The fair, kind way for families to divide a loved one's belongings — divide what
+matters with love and fairness.
 
 ## Tech Stack
 - React + TypeScript (Vite)
@@ -50,3 +51,19 @@ npm run build
 |---|---|
 | `DATABASE_URL` | PostgreSQL connection string (use Neon for free hosting) |
 | `OWNER_PASSWORD` | Secret password for app owner bypass access |
+| `SESSION_SECRET` | Signs organizer session cookies — set a long random value in production |
+| `STRIPE_SECRET_KEY` | Enables per-estate billing. Omit to keep billing inert. |
+| `STRIPE_WEBHOOK_SECRET` | Verifies Stripe webhook signatures |
+| `STRIPE_PRICE_ID` | Optional — a fixed Stripe Price to charge for activation |
+| `STRIPE_ACTIVATION_AMOUNT` | Optional — inline activation amount in cents (default `9900`) |
+| `BLOB_READ_WRITE_TOKEN` | Enables object storage for photos/audio (Vercel Blob). Omit to fall back to base64-in-DB. |
+| `RESEND_API_KEY` | Enables emailing participants their private links (Resend). Omit to hide invite UI. |
+| `RESEND_FROM` | Optional — from address, e.g. `Evenkeep <invites@yourdomain.com>` (needs a verified domain in Resend) |
+
+## Multi-tenancy
+
+The app is multi-tenant: each **estate** is an isolated family draft, owned by an
+**organizer** account (email/password, sign up at `/account`). Existing
+single-family data is automatically migrated into a "default estate", so no
+manual migration is needed. See [`MONETIZATION.md`](./MONETIZATION.md) for the
+full release/monetization strategy and roadmap.

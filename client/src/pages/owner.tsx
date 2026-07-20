@@ -1,10 +1,12 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Logo } from "@/components/logo";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Shield, Users, Package, Gavel, AlertTriangle, Lock, User, RefreshCw } from "lucide-react";
@@ -38,43 +40,63 @@ function OwnerPasswordGate({ children }: { children: (password: string) => React
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <Shield className="w-10 h-10 mx-auto mb-2 text-muted-foreground" />
-          <CardTitle className="font-serif text-xl" data-testid="text-owner-login-title">Owner Access</CardTitle>
-          <p className="text-sm text-muted-foreground mt-1">
-            Enter the master password to continue
-          </p>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="owner-password">Master Password</Label>
-              <Input
-                id="owner-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleVerify()}
-                placeholder="Enter master password"
-                data-testid="input-owner-password"
-              />
-            </div>
-            {error && (
-              <p className="text-sm text-destructive" data-testid="text-owner-error">{error}</p>
-            )}
-            <Button
-              onClick={handleVerify}
-              disabled={!password || loading}
-              className="w-full"
-              data-testid="button-owner-unlock"
-            >
-              {loading ? "Verifying..." : "Unlock"}
-            </Button>
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-5 py-12 sm:px-8">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/[0.07] via-accent/[0.04] to-transparent"
+        />
+        <div className="relative w-full max-w-md">
+          <div className="flex justify-center">
+            <Link href="/" className="rounded-md" aria-label="Evenkeep home">
+              <Logo />
+            </Link>
           </div>
-        </CardContent>
-      </Card>
+          <div className="mt-8 rounded-2xl border border-card-border bg-card p-8 shadow-lg">
+            <div className="text-center">
+              <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Shield className="h-6 w-6" />
+              </span>
+              <h1
+                className="mt-6 font-serif text-2xl font-bold tracking-tight"
+                data-testid="text-owner-login-title"
+              >
+                Owner Access
+              </h1>
+              <p className="mt-2 text-base leading-relaxed text-muted-foreground">
+                Enter the master password to continue.
+              </p>
+            </div>
+            <div className="mt-7 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="owner-password">Master Password</Label>
+                <Input
+                  id="owner-password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleVerify()}
+                  placeholder="Enter master password"
+                  className="min-h-12"
+                  data-testid="input-owner-password"
+                />
+              </div>
+              {error && (
+                <p className="text-sm text-destructive" data-testid="text-owner-error">{error}</p>
+              )}
+              <Button
+                onClick={handleVerify}
+                disabled={!password || loading}
+                size="lg"
+                className="min-h-12 w-full text-base shadow-md"
+                data-testid="button-owner-unlock"
+              >
+                {loading ? "Verifying..." : "Unlock"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -133,25 +155,40 @@ function OwnerDashboard({ password }: { password: string }) {
       : "outline";
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-2xl mx-auto p-4 sm:p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <Shield className="w-7 h-7 text-muted-foreground" />
+    <div className="min-h-screen bg-background text-foreground">
+      <header className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
+          <Link href="/" className="rounded-md" aria-label="Evenkeep home">
+            <Logo />
+          </Link>
+          <Badge variant="secondary" className="gap-1.5">
+            <Shield className="h-3 w-3" /> Owner
+          </Badge>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-2xl px-5 py-8 sm:px-8 sm:py-12">
+        <div className="mb-8 flex items-center gap-4">
+          <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <Shield className="h-6 w-6" />
+          </span>
           <div>
-            <h1 className="font-serif text-2xl font-semibold" data-testid="text-owner-title">Owner Dashboard</h1>
-            <p className="text-sm text-muted-foreground">App management and admin support</p>
+            <h1 className="font-serif text-3xl font-bold tracking-tight sm:text-4xl" data-testid="text-owner-title">Owner Dashboard</h1>
+            <p className="mt-1 text-base leading-relaxed text-muted-foreground">App management and admin support</p>
           </div>
         </div>
 
         {/* Always show the reset card first so it's accessible even if status fails */}
         <div className="space-y-4">
-          <Card className="border-destructive/30">
-            <CardHeader className="flex flex-row items-center gap-2 pb-3">
-              <AlertTriangle className="w-5 h-5 text-destructive" />
-              <CardTitle className="text-base">Admin Reset</CardTitle>
+          <Card className="rounded-2xl border-destructive/30 shadow-sm">
+            <CardHeader className="flex flex-row items-center gap-3 pb-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-destructive/10 text-destructive">
+                <AlertTriangle className="h-5 w-5" />
+              </span>
+              <CardTitle className="font-serif text-lg font-semibold">Admin Reset</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">
+              <p className="mb-4 text-base leading-relaxed text-muted-foreground">
                 Clears the admin PIN so the next person to visit the admin page can set up a new PIN and take over.
               </p>
               {!confirmReset ? (
@@ -194,8 +231,8 @@ function OwnerDashboard({ password }: { password: string }) {
           )}
 
           {isError && (
-            <Card>
-              <CardContent className="py-6 text-center text-sm text-muted-foreground">
+            <Card className="rounded-2xl border-card-border shadow-sm">
+              <CardContent className="py-6 text-center text-base leading-relaxed text-muted-foreground">
                 Could not load status — database may be in an inconsistent state. Use the reset above to fix it.
               </CardContent>
             </Card>
@@ -203,10 +240,12 @@ function OwnerDashboard({ password }: { password: string }) {
 
           {status && (
             <>
-              <Card>
-                <CardHeader className="flex flex-row items-center gap-2 pb-3">
-                  <User className="w-5 h-5 text-muted-foreground" />
-                  <CardTitle className="text-base">Admin Status</CardTitle>
+              <Card className="rounded-2xl border-card-border shadow-sm">
+                <CardHeader className="flex flex-row items-center gap-3 pb-3">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <User className="h-5 w-5" />
+                  </span>
+                  <CardTitle className="font-serif text-lg font-semibold">Admin Status</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
@@ -230,10 +269,12 @@ function OwnerDashboard({ password }: { password: string }) {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center gap-2 pb-3">
-                  <Users className="w-5 h-5 text-muted-foreground" />
-                  <CardTitle className="text-base">Family Members</CardTitle>
+              <Card className="rounded-2xl border-card-border shadow-sm">
+                <CardHeader className="flex flex-row items-center gap-3 pb-3">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Users className="h-5 w-5" />
+                  </span>
+                  <CardTitle className="font-serif text-lg font-semibold">Family Members</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {status.siblings.length === 0 ? (
@@ -258,33 +299,37 @@ function OwnerDashboard({ password }: { password: string }) {
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center gap-2 pb-3">
-                  <Package className="w-5 h-5 text-muted-foreground" />
-                  <CardTitle className="text-base">Items</CardTitle>
+              <Card className="rounded-2xl border-card-border shadow-sm">
+                <CardHeader className="flex flex-row items-center gap-3 pb-3">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/12 text-accent">
+                    <Package className="h-5 w-5" />
+                  </span>
+                  <CardTitle className="font-serif text-lg font-semibold">Items</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-3 gap-4 text-center">
-                    <div>
-                      <p className="text-2xl font-semibold" data-testid="text-total-items">{status.items.total}</p>
-                      <p className="text-xs text-muted-foreground">Total</p>
+                    <div className="rounded-xl border border-card-border bg-secondary/30 py-4">
+                      <p className="font-serif text-3xl font-bold" data-testid="text-total-items">{status.items.total}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Total</p>
                     </div>
-                    <div>
-                      <p className="text-2xl font-semibold" data-testid="text-picked-items">{status.items.picked}</p>
-                      <p className="text-xs text-muted-foreground">Picked</p>
+                    <div className="rounded-xl border border-card-border bg-secondary/30 py-4">
+                      <p className="font-serif text-3xl font-bold" data-testid="text-picked-items">{status.items.picked}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Picked</p>
                     </div>
-                    <div>
-                      <p className="text-2xl font-semibold" data-testid="text-unpicked-items">{status.items.unpicked}</p>
-                      <p className="text-xs text-muted-foreground">Unpicked</p>
+                    <div className="rounded-xl border border-card-border bg-secondary/30 py-4">
+                      <p className="font-serif text-3xl font-bold" data-testid="text-unpicked-items">{status.items.unpicked}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Unpicked</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center gap-2 pb-3">
-                  <Gavel className="w-5 h-5 text-muted-foreground" />
-                  <CardTitle className="text-base">Draft</CardTitle>
+              <Card className="rounded-2xl border-card-border shadow-sm">
+                <CardHeader className="flex flex-row items-center gap-3 pb-3">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/12 text-accent">
+                    <Gavel className="h-5 w-5" />
+                  </span>
+                  <CardTitle className="font-serif text-lg font-semibold">Draft</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-between flex-wrap gap-2">
@@ -298,7 +343,7 @@ function OwnerDashboard({ password }: { password: string }) {
             </>
           )}
         </div>
-      </div>
+      </main>
     </div>
   );
 }

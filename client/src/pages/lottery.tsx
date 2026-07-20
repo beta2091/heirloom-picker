@@ -10,6 +10,7 @@ import {
   ArrowLeft, Lock, Loader2, Trophy, Hash, Check, Sparkles, Crown
 } from "lucide-react";
 import { getInitials } from "@/lib/utils-initials";
+import { Logo } from "@/components/logo";
 // @ts-ignore
 import confetti from "canvas-confetti";
 
@@ -107,10 +108,10 @@ function SpinWheel({
     ctx.save();
     ctx.beginPath();
     ctx.arc(cx, cy, radius + 4, 0, Math.PI * 2);
-    ctx.strokeStyle = "#f59e0b";
+    ctx.strokeStyle = "#b8663a";
     ctx.lineWidth = 3;
-    ctx.shadowColor = "#f59e0b";
-    ctx.shadowBlur = 15;
+    ctx.shadowColor = "#b8663a";
+    ctx.shadowBlur = 14;
     ctx.stroke();
     ctx.restore();
 
@@ -180,9 +181,9 @@ function SpinWheel({
 
     ctx.beginPath();
     ctx.arc(cx, cy, radius * 0.12, 0, Math.PI * 2);
-    ctx.fillStyle = "#1f2937";
+    ctx.fillStyle = "#2a2018";
     ctx.fill();
-    ctx.strokeStyle = "#f59e0b";
+    ctx.strokeStyle = "#b8663a";
     ctx.lineWidth = 2;
     ctx.stroke();
 
@@ -201,7 +202,7 @@ function SpinWheel({
     ctx.lineTo(cx - pointerW, pointerBase);
     ctx.lineTo(cx + pointerW, pointerBase);
     ctx.closePath();
-    ctx.fillStyle = "#ef4444";
+    ctx.fillStyle = "#b8663a";
     ctx.fill();
     ctx.shadowColor = "transparent";
     ctx.strokeStyle = "#fff";
@@ -210,7 +211,7 @@ function SpinWheel({
 
     ctx.beginPath();
     ctx.arc(cx, pointerBase + (pointerTip - pointerBase) * 0.15, pointerW * 0.35, 0, Math.PI * 2);
-    ctx.fillStyle = "#dc2626";
+    ctx.fillStyle = "#8a4526";
     ctx.fill();
     ctx.strokeStyle = "#fff";
     ctx.lineWidth = 1.5;
@@ -395,22 +396,23 @@ export default function LotteryPage() {
   const [showLandedOn, setShowLandedOn] = useState(false);
 
   const fireConfetti = useCallback(() => {
-    const duration = 2000;
+    const duration = 1600;
     const end = Date.now() + duration;
-    const colors = ["#f59e0b", "#fbbf24", "#d97706", "#ffffff", "#ef4444"];
+    // Warm heritage palette — terracotta, evergreen, and cream — kept gentle.
+    const colors = ["#b8663a", "#d98a5c", "#2f6b4f", "#f5ede2", "#8a4526"];
 
     const frame = () => {
       confetti({
-        particleCount: 4,
+        particleCount: 3,
         angle: 60,
-        spread: 55,
+        spread: 50,
         origin: { x: 0 },
         colors,
       });
       confetti({
-        particleCount: 4,
+        particleCount: 3,
         angle: 120,
-        spread: 55,
+        spread: 50,
         origin: { x: 1 },
         colors,
       });
@@ -419,8 +421,8 @@ export default function LotteryPage() {
     frame();
 
     confetti({
-      particleCount: 100,
-      spread: 70,
+      particleCount: 70,
+      spread: 66,
       origin: { y: 0.6 },
       colors,
     });
@@ -470,42 +472,44 @@ export default function LotteryPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-amber-400" />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      <header className="border-b border-amber-900/30">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+    <div className="min-h-screen bg-background text-foreground">
+      <header className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
+          <div className="flex items-center gap-2 sm:gap-3">
             <Link href="/">
-              <Button variant="ghost" size="icon" className="text-amber-400 hover:text-amber-300 hover:bg-amber-400/10" data-testid="button-back">
+              <Button variant="ghost" size="icon" data-testid="button-back">
                 <ArrowLeft className="w-5 h-5" />
               </Button>
             </Link>
-            <div className="flex items-center gap-2">
-              <Trophy className="w-6 h-6 text-amber-400" />
-              <span className="font-serif text-xl font-bold text-amber-400">Draft Lottery</span>
-            </div>
+            <Link href="/" className="rounded-md" aria-label="Evenkeep home">
+              <Logo />
+            </Link>
+            <span className="hidden text-sm font-semibold uppercase tracking-[0.14em] text-primary sm:inline">
+              Draft Order
+            </span>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 max-w-3xl">
+      <main className="mx-auto max-w-3xl px-5 sm:px-8 py-8 sm:py-12">
         <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-2 text-amber-400/70 text-sm uppercase tracking-widest mb-3">
+          <div className="mb-3 inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.14em] text-primary">
             <Sparkles className="w-4 h-4" />
-            Pick Your Lucky Number
+            Setting a fair order
             <Sparkles className="w-4 h-4" />
           </div>
-          <h1 className="font-serif text-4xl font-bold text-white mb-3">
-            Who Picks First?
+          <h1 className="mb-3 font-serif text-4xl font-bold tracking-tight">
+            Who picks first?
           </h1>
-          <p className="text-gray-400 max-w-lg mx-auto">
-            Everyone locks in a number from 1-50. The wheel spins and the closest number to it picks first in the draft.
+          <p className="mx-auto max-w-lg text-base leading-relaxed text-muted-foreground">
+            Everyone locks in a number from 1 to 50. The wheel is drawn, and whoever is closest chooses first — no one deciding, just chance being fair to all.
           </p>
         </div>
 
@@ -522,22 +526,21 @@ export default function LotteryPage() {
 
             {!isSpinning && spinResult && showLandedOn && (
               <div className="mt-6 animate-in fade-in zoom-in duration-500" data-testid="winning-number-display">
-                <p className="text-gray-400 text-lg mb-1">The wheel landed on...</p>
-                <div className="inline-flex items-center gap-3">
-                  <span className="text-amber-400 text-5xl font-bold font-mono animate-bounce">
+                <p className="mb-1 text-base text-muted-foreground">The wheel landed on</p>
+                <div className="inline-flex items-baseline gap-2">
+                  <span className="font-serif text-5xl font-bold text-primary">
                     {spinResult.winningNumber}
                   </span>
-                  <span className="text-amber-400 text-3xl">!</span>
                 </div>
               </div>
             )}
 
             {showResults && spinResult && (
               <div className="space-y-3 max-w-md mx-auto mt-8" data-testid="draft-order-results">
-                <h3 className="text-lg font-semibold text-amber-400 mb-4">Draft Order</h3>
+                <h3 className="mb-4 text-sm font-semibold uppercase tracking-[0.14em] text-primary">Draft Order</h3>
                 {spinResult.tiebreakerNumber !== null && revealedPositions >= spinResult.draftOrder.length && (
                   <div className="mb-4 text-center animate-in fade-in duration-500">
-                    <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30 text-xs px-3 py-1">
+                    <Badge variant="secondary" className="px-3 py-1 text-xs">
                       Tiebreaker round: #{spinResult.tiebreakerNumber}
                     </Badge>
                   </div>
@@ -560,13 +563,13 @@ export default function LotteryPage() {
                           transform: isRevealed ? "rotateX(0deg)" : "rotateX(90deg)",
                         }}
                       >
-                        <Card className={`bg-gray-900 border-gray-800 ${
-                          entry.draftPosition === 1 && isRevealed ? "ring-2 ring-amber-400 shadow-lg shadow-amber-400/20" : ""
+                        <Card className={`rounded-2xl border-card-border text-left shadow-sm ${
+                          entry.draftPosition === 1 && isRevealed ? "border-primary/30 bg-primary/[0.06] shadow-md" : ""
                         }`}>
                           <CardContent className="py-3 px-4">
                             <div className="flex items-center gap-3">
                               <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg shrink-0 ${
-                                entry.draftPosition === 1 ? "bg-amber-400 text-gray-900" : "bg-gray-800 text-gray-300"
+                                entry.draftPosition === 1 ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                               }`}>
                                 {entry.draftPosition === 1 ? <Crown className="w-5 h-5" /> : entry.draftPosition}
                               </div>
@@ -578,19 +581,19 @@ export default function LotteryPage() {
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-baseline gap-1.5">
-                                  <span className="text-gray-400 text-xs uppercase tracking-wide">
+                                  <span className="text-xs uppercase tracking-wide text-muted-foreground">
                                     {ordinal(entry.draftPosition)} Pick:
                                   </span>
-                                  <span className="font-semibold text-white truncate">{entry.name}</span>
+                                  <span className="font-serif font-semibold truncate">{entry.name}</span>
                                 </div>
-                                <p className="text-gray-500 text-xs mt-0.5">
-                                  picked <span className="text-amber-400 font-mono font-bold">{entry.lotteryNumber}</span>
+                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                  picked <span className="font-mono font-bold text-primary">{entry.lotteryNumber}</span>
                                   {entry.draftPosition === 1
-                                    ? <span className="text-green-400">, closest at {entry.distance} away</span>
+                                    ? <span className="text-accent">, closest at {entry.distance} away</span>
                                     : <span>, {entry.distance} away</span>
                                   }
                                   {hasTiebreaker && (
-                                    <span className="text-purple-400"> (tiebreaker: {entry.tiebreakerDistance} away)</span>
+                                    <span className="italic"> (tiebreaker: {entry.tiebreakerDistance} away)</span>
                                   )}
                                 </p>
                               </div>
@@ -608,17 +611,17 @@ export default function LotteryPage() {
                       <Link href="/draft">
                         <Button
                           size="lg"
-                          className="bg-gradient-to-r from-amber-400 to-amber-500 text-gray-900 hover:from-amber-300 hover:to-amber-400 text-lg px-8 py-6 gap-3"
+                          className="min-h-12 gap-3 px-8 text-base shadow-md"
                           data-testid="button-start-draft"
                         >
-                          <Trophy className="w-6 h-6" />
-                          Start Draft →
+                          <Trophy className="w-5 h-5" />
+                          Start Draft
                         </Button>
                       </Link>
                     ) : (
-                      <p className="text-gray-400 text-lg" data-testid="text-draft-order-set">
-                        Draft order is set! Watch for{" "}
-                        <span className="text-amber-400 font-semibold">
+                      <p className="text-base text-muted-foreground" data-testid="text-draft-order-set">
+                        Draft order is set. Watch for{" "}
+                        <span className="font-semibold text-primary">
                           {adminStatus?.contactName || "the admin"}
                         </span>{" "}
                         to start the draft.
@@ -637,29 +640,29 @@ export default function LotteryPage() {
               {participants.map((p) => (
                 <Card
                   key={p.id}
-                  className={`bg-gray-900 border-gray-800 transition-all ${
-                    activeSiblingId === p.id ? "ring-2 ring-amber-400" : ""
+                  className={`rounded-2xl border-card-border p-6 shadow-sm transition-all ${
+                    activeSiblingId === p.id ? "border-primary/30 bg-primary/[0.06] shadow-md" : ""
                   }`}
                   data-testid={`participant-card-${p.id}`}
                 >
-                  <CardContent className="py-4 px-4">
+                  <CardContent className="p-0">
                     <div className="flex items-center gap-3">
                       <div
-                        className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg"
+                        className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg shrink-0 shadow-sm"
                         style={{ backgroundColor: p.color }}
                       >
                         {getInitials(p.name)}
                       </div>
-                      <div className="flex-1">
-                        <h3 className="font-medium text-white">{p.name}</h3>
-                        <p className="text-sm text-gray-400">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-serif text-lg font-semibold">{p.name}</h3>
+                        <p className="text-sm text-muted-foreground">
                           {p.wishlistSubmitted ? "Rankings submitted" : "Rankings pending"}
                         </p>
                       </div>
                       {p.lotteryNumber !== null ? (
-                        <div className="flex items-center gap-2">
-                          <Lock className="w-4 h-4 text-amber-400" />
-                          <span className="font-mono text-2xl font-bold text-amber-400" data-testid={`locked-number-${p.id}`}>
+                        <div className="flex items-center gap-2 text-accent">
+                          <Lock className="w-4 h-4" />
+                          <span className="font-mono text-2xl font-bold" data-testid={`locked-number-${p.id}`}>
                             {p.lotteryNumber}
                           </span>
                         </div>
@@ -668,7 +671,7 @@ export default function LotteryPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => setActiveSiblingId(null)}
-                          className="text-gray-400"
+                          className="min-h-12 text-muted-foreground"
                           data-testid={`button-cancel-pick-${p.id}`}
                         >
                           Cancel
@@ -679,7 +682,7 @@ export default function LotteryPage() {
                             setActiveSiblingId(p.id);
                             setSelectedNumber(null);
                           }}
-                          className="bg-amber-400 text-gray-900 hover:bg-amber-300"
+                          className="min-h-12 gap-1 shadow-md"
                           size="sm"
                           data-testid={`button-pick-number-${p.id}`}
                         >
@@ -695,7 +698,7 @@ export default function LotteryPage() {
 
             {activeSiblingId && (
               <div className="mb-8" data-testid="number-picker">
-                <h3 className="text-center text-lg font-medium text-amber-400 mb-4">
+                <h3 className="mb-4 text-center font-serif text-lg font-semibold">
                   Choose a number (1-50)
                 </h3>
                 <div className="grid grid-cols-10 gap-2 max-w-lg mx-auto">
@@ -709,10 +712,10 @@ export default function LotteryPage() {
                         disabled={isTaken}
                         className={`aspect-square rounded-lg font-mono font-bold text-sm transition-all ${
                           isSelected
-                            ? "bg-amber-400 text-gray-900 scale-110 ring-2 ring-amber-300"
+                            ? "bg-primary text-primary-foreground scale-110 shadow-md"
                             : isTaken
-                            ? "bg-gray-800 text-gray-600 cursor-not-allowed"
-                            : "bg-gray-900 text-gray-300 border border-gray-700 hover:border-amber-400 hover:text-amber-400"
+                            ? "bg-muted text-muted-foreground/50 cursor-not-allowed"
+                            : "border border-border bg-card text-foreground hover:border-primary hover:text-primary"
                         }`}
                         data-testid={`number-button-${num}`}
                       >
@@ -727,7 +730,7 @@ export default function LotteryPage() {
                       onClick={() => lockNumberMutation.mutate({ siblingId: activeSiblingId, number: selectedNumber })}
                       disabled={lockNumberMutation.isPending}
                       size="lg"
-                      className="bg-amber-400 text-gray-900 hover:bg-amber-300 gap-2"
+                      className="min-h-12 gap-2 px-8 text-base shadow-md"
                       data-testid="button-lock-number"
                     >
                       {lockNumberMutation.isPending ? (
@@ -745,7 +748,7 @@ export default function LotteryPage() {
             {allLocked && (
               <div className="text-center" data-testid="spin-section">
                 <div className="mb-6">
-                  <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-sm px-4 py-1">
+                  <Badge className="bg-accent/12 text-accent border-accent/20 text-sm px-4 py-1">
                     <Check className="w-4 h-4 mr-1" />
                     All numbers locked in
                   </Badge>
@@ -767,23 +770,23 @@ export default function LotteryPage() {
                     onClick={() => spinMutation.mutate()}
                     disabled={spinMutation.isPending}
                     size="lg"
-                    className="bg-gradient-to-r from-amber-400 to-amber-500 text-gray-900 hover:from-amber-300 hover:to-amber-400 text-lg px-8 py-6 gap-3 animate-pulse hover:animate-none"
+                    className="min-h-12 gap-3 px-8 text-base shadow-md"
                     data-testid="button-spin"
                   >
                     {spinMutation.isPending ? (
                       <Loader2 className="w-6 h-6 animate-spin" />
                     ) : (
                       <>
-                        <span className="text-xl">🎰</span>
-                        SPIN THE WHEEL
+                        <Sparkles className="w-5 h-5" />
+                        Draw the order
                       </>
                     )}
                   </Button>
                 ) : (
                   <div className="max-w-xs mx-auto space-y-4">
-                    <div className="flex items-center gap-2 justify-center text-gray-400">
+                    <div className="flex items-center gap-2 justify-center text-muted-foreground">
                       <Lock className="w-4 h-4" />
-                      <span className="text-sm">Admin access required to spin</span>
+                      <span className="text-sm">Admin access required to draw</span>
                     </div>
                     <input
                       type="password"
@@ -794,7 +797,7 @@ export default function LotteryPage() {
                       }}
                       placeholder="Enter admin PIN"
                       maxLength={4}
-                      className="w-full text-center text-2xl tracking-widest bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white focus:border-amber-400 focus:outline-none"
+                      className="w-full rounded-lg border border-input bg-card px-4 py-3 text-center text-2xl tracking-widest text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && adminPinInput.length === 4) {
                           verifyAdminPin();
@@ -803,16 +806,16 @@ export default function LotteryPage() {
                       data-testid="input-admin-pin-lottery"
                     />
                     {adminPinError && (
-                      <p className="text-red-400 text-sm">Incorrect PIN. Try again.</p>
+                      <p className="text-sm text-destructive">Incorrect PIN. Try again.</p>
                     )}
                     <Button
                       onClick={verifyAdminPin}
                       disabled={adminPinInput.length !== 4}
                       size="lg"
-                      className="w-full bg-amber-400 text-gray-900 hover:bg-amber-300"
+                      className="min-h-12 w-full px-8 text-base shadow-md"
                       data-testid="button-verify-admin"
                     >
-                      Unlock Spin
+                      Unlock
                     </Button>
                   </div>
                 )}

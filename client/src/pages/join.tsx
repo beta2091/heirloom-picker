@@ -2,9 +2,9 @@ import { useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Heart, AlertCircle } from "lucide-react";
+import { Logo } from "@/components/logo";
+import { Loader2, ArrowLeft, Unplug } from "lucide-react";
 import { Link } from "wouter";
 
 interface JoinResponse {
@@ -55,34 +55,67 @@ export default function JoinPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-background to-muted/30 p-4">
-        <Card className="max-w-md w-full">
-          <CardContent className="py-12 text-center space-y-4">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" />
-            <p className="text-muted-foreground">Loading your draft...</p>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-background text-foreground">
+        <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-5 py-12 sm:px-8">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/[0.07] via-accent/[0.04] to-transparent"
+          />
+          <div className="relative w-full max-w-md text-center">
+            <div className="flex justify-center">
+              <Logo />
+            </div>
+            <div className="mt-8 rounded-2xl border border-card-border bg-card p-8 shadow-lg">
+              <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+              <p className="mt-4 text-base leading-relaxed text-muted-foreground">
+                Opening your private page…
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-background to-muted/30 p-4">
-        <Card className="max-w-md w-full">
-          <CardContent className="py-12 text-center space-y-4">
-            <AlertCircle className="w-12 h-12 mx-auto text-muted-foreground" />
-            <h2 className="font-serif text-xl font-semibold">This link isn't valid</h2>
-            <p className="text-muted-foreground text-sm">
-              It may have expired or been entered incorrectly. Ask the person who sent it to share a new link.
-            </p>
-            <Link href="/">
-              <Button variant="outline" className="gap-2 mt-4">
-                <Heart className="w-4 h-4" /> Go Home
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-background text-foreground">
+        <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-5 py-12 sm:px-8">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/[0.07] via-accent/[0.04] to-transparent"
+          />
+          <div className="relative w-full max-w-md text-center">
+            <div className="flex justify-center">
+              <Link href="/" className="rounded-md" aria-label="Evenkeep home">
+                <Logo />
+              </Link>
+            </div>
+            <div className="mt-8 rounded-2xl border border-card-border bg-card p-8 shadow-lg">
+              <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Unplug className="h-6 w-6" />
+              </span>
+              <h2 className="mt-6 font-serif text-3xl font-bold tracking-tight">
+                This link isn't valid
+              </h2>
+              <p className="mt-3 text-base leading-relaxed text-muted-foreground">
+                It may have expired or been entered incorrectly. Ask the person
+                who sent it to share a new link with you.
+              </p>
+              <div className="mt-7 flex justify-center">
+                <Link href="/">
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="min-h-12 gap-2 px-8 text-base"
+                  >
+                    <ArrowLeft className="h-4 w-4" /> Go home
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

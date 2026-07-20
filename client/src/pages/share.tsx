@@ -9,8 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Logo } from "@/components/logo";
 import { useToast } from "@/hooks/use-toast";
-import { Heart, Star, Loader2, Image as ImageIcon, Check, Trophy, Volume2, Plus, Users, MessageSquare, Trash2, User } from "lucide-react";
+import { Heart, Star, Loader2, Image as ImageIcon, Check, Trophy, Volume2, Plus, Users, MessageSquare, Trash2, User, Unplug } from "lucide-react";
 import { getInitials } from "@/lib/utils-initials";
 import { HelpTooltip } from "@/components/help-tooltip";
 import type { WishlistItem, FamilyMember, FamilySuggestion } from "@shared/schema";
@@ -140,7 +141,7 @@ export default function SharePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -148,19 +149,35 @@ export default function SharePage() {
 
   if (error || !data) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <Card className="max-w-md w-full">
-          <CardContent className="py-12 text-center">
-            <Heart className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-            <h2 className="font-serif text-xl font-semibold mb-2">Link Not Found</h2>
-            <p className="text-muted-foreground mb-6">
-              This share link may be invalid or expired.
-            </p>
-            <Link href="/">
-              <Button>Go Home</Button>
-            </Link>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-background text-foreground">
+        <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-5 py-12 sm:px-8">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/[0.07] via-accent/[0.04] to-transparent"
+          />
+          <div className="relative w-full max-w-md text-center">
+            <div className="flex justify-center">
+              <Link href="/" className="rounded-md" aria-label="Evenkeep home">
+                <Logo />
+              </Link>
+            </div>
+            <div className="mt-8 rounded-2xl border border-card-border bg-card p-8 shadow-lg">
+              <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Unplug className="h-6 w-6" />
+              </span>
+              <h2 className="mt-6 font-serif text-3xl font-bold tracking-tight">Link not found</h2>
+              <p className="mt-3 text-base leading-relaxed text-muted-foreground">
+                This share link may be invalid or expired. Ask the person who sent
+                it to share a new link with you.
+              </p>
+              <div className="mt-7 flex justify-center">
+                <Link href="/">
+                  <Button size="lg" className="min-h-12 px-8 text-base shadow-md">Go home</Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -203,28 +220,23 @@ export default function SharePage() {
   const isRegistered = !!familyMemberId && !!visitorName;
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-md bg-primary flex items-center justify-center">
-                <Heart className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <span className="font-serif text-xl font-semibold">Estate Draft</span>
-            </div>
-            {isRegistered && (
-              <Badge variant="secondary" className="gap-1">
-                <User className="w-3 h-3" />
-                {visitorName}
-              </Badge>
-            )}
-          </div>
+    <div className="min-h-screen bg-background text-foreground">
+      <header className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur-md">
+        <div className="mx-auto flex max-w-4xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
+          <Link href="/" className="rounded-md" aria-label="Evenkeep home">
+            <Logo />
+          </Link>
+          {isRegistered && (
+            <Badge variant="secondary" className="gap-1.5">
+              <User className="h-3 w-3" />
+              {visitorName}
+            </Badge>
+          )}
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-8 max-w-4xl">
-        <Card className="mb-8" style={{ borderColor: sibling.color, borderWidth: 2 }}>
+      <main className="mx-auto max-w-4xl px-5 py-8 sm:px-8 sm:py-12">
+        <Card className="mb-8 rounded-2xl shadow-sm" style={{ borderColor: sibling.color, borderWidth: 2 }}>
           <CardContent className="py-6">
             <div className="flex items-center gap-4">
               <div
@@ -234,9 +246,9 @@ export default function SharePage() {
                 {getInitials(sibling.name)}
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Shared page for</p>
-                <h1 className="font-serif text-2xl font-semibold">{sibling.name}</h1>
-                <p className="text-muted-foreground">
+                <p className="text-sm font-semibold uppercase tracking-[0.14em] text-primary">Shared page for</p>
+                <h1 className="mt-1 font-serif text-3xl font-bold tracking-tight sm:text-4xl">{sibling.name}</h1>
+                <p className="mt-1 text-base text-muted-foreground">
                   {sibling.draftOrder > 0 ? `Draft Position #${sibling.draftOrder}` : "Family Member"}
                 </p>
               </div>
@@ -245,27 +257,31 @@ export default function SharePage() {
         </Card>
 
         {!isRegistered && (
-          <Card className="mb-8">
-            <CardContent className="py-6">
-              <div className="text-center mb-4">
-                <Users className="w-10 h-10 mx-auto text-primary mb-2" />
-                <h2 className="font-serif text-lg font-semibold">Welcome!</h2>
-                <p className="text-muted-foreground text-sm mt-1">
-                  Enter your name to suggest items for {sibling.name}'s wishlist. 
+          <Card className="mb-8 rounded-2xl border-card-border shadow-sm">
+            <CardContent className="py-8">
+              <div className="mb-5 text-center">
+                <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Users className="h-6 w-6" />
+                </span>
+                <h2 className="mt-5 font-serif text-2xl font-bold tracking-tight">Welcome</h2>
+                <p className="mx-auto mt-2 max-w-md text-base leading-relaxed text-muted-foreground">
+                  Enter your name to suggest items for {sibling.name}'s wishlist.
                   You can browse freely without entering your name.
                 </p>
               </div>
-              <div className="flex gap-2 max-w-sm mx-auto">
+              <div className="mx-auto flex max-w-sm gap-2">
                 <Input
                   placeholder="Your name"
                   value={nameInput}
                   onChange={(e) => setNameInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleRegister()}
+                  className="min-h-12"
                   data-testid="input-visitor-name"
                 />
                 <Button
                   onClick={handleRegister}
                   disabled={nameInput.trim().length === 0 || registerMutation.isPending}
+                  className="min-h-12 px-6 text-base shadow-md"
                   data-testid="button-register-visitor"
                 >
                   {registerMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Join"}
@@ -275,8 +291,8 @@ export default function SharePage() {
           </Card>
         )}
 
-        <div className="text-center mb-8 p-4 bg-muted/50 rounded-md">
-          <p className="text-muted-foreground text-sm">
+        <div className="mb-8 rounded-2xl border border-card-border bg-secondary/30 p-4 text-center">
+          <p className="text-base leading-relaxed text-muted-foreground">
             {isRegistered
               ? `You're signed in as ${visitorName}. Suggest items you think ${sibling.name} should pick!`
               : `Browse ${sibling.name}'s items. Enter your name above to suggest items for their wishlist.`}
@@ -285,8 +301,10 @@ export default function SharePage() {
 
         {familyMembers.length > 0 && (
           <section className="mb-8">
-            <h2 className="font-serif text-2xl font-semibold mb-4 flex items-center gap-2">
-              <Users className="w-6 h-6 text-primary" />
+            <h2 className="mb-4 flex items-center gap-3 font-serif text-2xl font-bold tracking-tight sm:text-3xl">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Users className="h-5 w-5" />
+              </span>
               Family Members
               <HelpTooltip text="People who have visited this page and entered their name. Click on someone to see what items they've suggested." side="right" />
             </h2>
@@ -296,7 +314,7 @@ export default function SharePage() {
                 return (
                   <Card
                     key={member.id}
-                    className={`cursor-pointer hover-elevate ${selectedFamilyMemberId === member.id ? "ring-2 ring-primary" : ""}`}
+                    className={`cursor-pointer rounded-2xl border-card-border shadow-sm hover-elevate ${selectedFamilyMemberId === member.id ? "ring-2 ring-primary" : ""}`}
                     onClick={() => setSelectedFamilyMemberId(
                       selectedFamilyMemberId === member.id ? null : member.id
                     )}
@@ -317,9 +335,9 @@ export default function SharePage() {
             </div>
 
             {selectedMember && (
-              <Card className="mt-4">
+              <Card className="mt-4 rounded-2xl border-card-border shadow-sm">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-lg font-serif flex items-center gap-2 flex-wrap">
+                  <CardTitle className="flex flex-wrap items-center gap-2 font-serif text-lg font-semibold">
                     <MessageSquare className="w-5 h-5 text-primary" />
                     {selectedMember.name}'s Suggestions
                   </CardTitle>
@@ -378,13 +396,15 @@ export default function SharePage() {
 
         {pickedItems.length > 0 && (
           <section className="mb-8">
-            <h2 className="font-serif text-2xl font-semibold mb-4 flex items-center gap-2">
-              <Trophy className="w-6 h-6 text-primary" />
+            <h2 className="mb-4 flex items-center gap-3 font-serif text-2xl font-bold tracking-tight sm:text-3xl">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/12 text-accent">
+                <Trophy className="h-5 w-5" />
+              </span>
               Items Won
             </h2>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {pickedItems.map((item) => (
-                <Card key={item.id} className="overflow-hidden" data-testid={`won-item-${item.id}`}>
+                <Card key={item.id} className="overflow-hidden rounded-2xl border-card-border shadow-sm" data-testid={`won-item-${item.id}`}>
                   <div className="aspect-square bg-muted relative">
                     {item.hasImage ? (
                       <img
@@ -434,8 +454,10 @@ export default function SharePage() {
 
         {wishlistItemsWithDetails.length > 0 && (
           <section className="mb-8">
-            <h2 className="font-serif text-2xl font-semibold mb-4 flex items-center gap-2">
-              <Star className="w-6 h-6 text-primary" />
+            <h2 className="mb-4 flex items-center gap-3 font-serif text-2xl font-bold tracking-tight sm:text-3xl">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Star className="h-5 w-5" />
+              </span>
               {sibling.name}'s Wishlist
             </h2>
             <div className="space-y-3">
@@ -443,9 +465,9 @@ export default function SharePage() {
                 const isPicked = item.pickedBySiblingId !== null;
                 const pickedBy = isPicked ? getSiblingById(item.pickedBySiblingId!) : null;
                 return (
-                  <Card 
-                    key={item.id} 
-                    className={isPicked ? "opacity-60" : ""}
+                  <Card
+                    key={item.id}
+                    className={`rounded-2xl border-card-border shadow-sm ${isPicked ? "opacity-60" : ""}`}
                     data-testid={`wishlist-item-${item.id}`}
                   >
                     <CardContent className="p-4">
@@ -507,8 +529,10 @@ export default function SharePage() {
 
         {availableItems.length > 0 && (
           <section>
-            <h2 className="font-serif text-2xl font-semibold mb-4 flex items-center gap-2">
-              <Heart className="w-6 h-6 text-primary" />
+            <h2 className="mb-4 flex items-center gap-3 font-serif text-2xl font-bold tracking-tight sm:text-3xl">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Heart className="h-5 w-5" />
+              </span>
               All Available Items
               <HelpTooltip text={isRegistered ? "Browse all items and click 'Suggest' to recommend items you think they should pick. You'll need to explain why!" : "Enter your name above to suggest items. You can browse freely without signing in."} side="right" />
             </h2>
@@ -517,7 +541,7 @@ export default function SharePage() {
                 const itemSuggestions = getSuggestionsForItem(item.id);
                 const alreadySuggested = itemSuggestions.some(s => s.familyMemberId === familyMemberId);
                 return (
-                  <Card key={item.id} className="overflow-hidden" data-testid={`available-item-${item.id}`}>
+                  <Card key={item.id} className="overflow-hidden rounded-2xl border-card-border shadow-sm" data-testid={`available-item-${item.id}`}>
                     <div className="aspect-square bg-muted relative">
                       {item.hasImage ? (
                         <img
@@ -644,9 +668,12 @@ export default function SharePage() {
         </Dialog>
       </main>
 
-      <footer className="border-t py-8 px-4 mt-12">
-        <div className="container mx-auto text-center text-sm text-muted-foreground">
-          <p>Made with care for families during difficult times</p>
+      <footer className="mt-12 border-t border-border bg-card/40">
+        <div className="mx-auto flex max-w-4xl flex-col items-center gap-4 px-5 py-10 text-center sm:px-8">
+          <Logo iconClassName="h-7 w-7" className="[&_span]:text-lg" />
+          <p className="max-w-md text-base text-muted-foreground">
+            Made with care for families during difficult times.
+          </p>
         </div>
       </footer>
     </div>

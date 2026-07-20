@@ -1,9 +1,23 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { createHash, randomBytes } from "crypto";
+import { createHash, randomBytes, createHmac, timingSafeEqual } from "crypto";
 import { storage } from "./storage";
 import { insertSiblingSchema, insertItemSchema } from "@shared/schema";
 import { z } from "zod";
+import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
+import { currentEstateId } from "./tenant";
+import { requireOrganizer } from "./auth";
+import { emailEnabled, sendEmail, buildInviteEmail } from "./email";
+import {
+  createOrganizer,
+  getOrganizerByEmail,
+  getOrganizerById,
+  verifyPassword,
+  createEstate,
+  getEstateById,
+  getEstatesByOwner,
+  updateEstate,
+} from "./accounts";
 
 function hashPin(pin: string): string {
   return createHash("sha256").update(`estate-draft-${pin}`).digest("hex").slice(0, 32);
@@ -76,6 +90,234 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  // ============ ORGANIZER ACCOUNTS ============
+  const signupSchema = z.object({
+    email: z.string().email(),
+    password: z.string().min(8, "Password must be at least 8 characters"),
+    name: z.string().optional(),
+    estateName: z.string().optional(),
+  });
+  const loginSchema = z.object({
+    email: z.string().email(),
+    password: z.string().min(1),
+  });
+
+  // Shape returned to the client for the signed-in organizer + their estate.
+  async function meResponse(organizerId: string) {
+    const organizer = await getOrganizerById(organizerId);
+    if (!organizer) return null;
+    const estates = await getEstatesByOwner(organizerId);
+    const estate = estates[0] ?? null;
+    return {
+      organizer: { id: organizer.id, email: organizer.email, name: organizer.name },
+      estate: estate
+        ? { id: estate.id, name: estate.name, status: estate.status }
+        : null,
+    };
+  }
+
+  app.post("/api/auth/signup", async (req, res) => {
+    try {
+      const data = signupSchema.parse(req.body);
+      const existing = await getOrganizerByEmail(data.email);
+      if (existing) {
+        return res.status(409).json({ error: "An account with this email already exists" });
+      }
+      const limited = rateLimit(`signup:${ipOf(req)}`, 10, 60 * 60 * 1000, 60 * 60 * 1000);
+      if (limited) return res.status(429).json({ error: `Too many attempts. Try again in ${limited}s.` });
+
+      const organizer = await createOrganizer(data.email, data.password, data.name);
+      const estate = await createEstate(organizer.id, data.estateName || data.name || "My Family");
+      req.session.organizerId = organizer.id;
+      req.session.estateId = estate.id;
+      res.json(await meResponse(organizer.id));
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors[0]?.message || "Invalid request" });
+      }
+      res.status(500).json({ error: "Failed to create account" });
+    }
+  });
+
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const data = loginSchema.parse(req.body);
+      const limited = rateLimit(`login:${ipOf(req)}`, 10, 15 * 60 * 1000, 15 * 60 * 1000);
+      if (limited) return res.status(429).json({ error: `Too many attempts. Try again in ${limited}s.` });
+
+      const organizer = await getOrganizerByEmail(data.email);
+      if (!organizer || !(await verifyPassword(data.password, organizer.passwordHash))) {
+        return res.status(401).json({ error: "Invalid email or password" });
+      }
+      rateLimitClear(`login:${ipOf(req)}`);
+      const estates = await getEstatesByOwner(organizer.id);
+      req.session.organizerId = organizer.id;
+      req.session.estateId = estates[0]?.id;
+      res.json(await meResponse(organizer.id));
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid request" });
+      }
+      res.status(500).json({ error: "Failed to sign in" });
+    }
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy(() => res.json({ success: true }));
+  });
+
+  app.get("/api/auth/me", async (req, res) => {
+    if (!req.session?.organizerId) return res.status(401).json({ error: "Not signed in" });
+    const me = await meResponse(req.session.organizerId);
+    if (!me) return res.status(401).json({ error: "Not signed in" });
+    res.json(me);
+  });
+
+  // ============ BILLING (Stripe, env-gated) ============
+  // Inert until STRIPE_SECRET_KEY is configured, so nothing breaks without it.
+  const stripeEnabled = () => !!process.env.STRIPE_SECRET_KEY;
+
+  app.get("/api/billing/status", async (req, res) => {
+    const estate = await getEstateById(currentEstateId());
+    res.json({
+      status: estate?.status ?? "trial",
+      active: estate?.status === "active",
+      billingEnabled: stripeEnabled(),
+    });
+  });
+
+  app.post("/api/billing/checkout", requireOrganizer, async (req, res) => {
+    try {
+      if (!stripeEnabled()) {
+        return res.status(503).json({ error: "Billing is not configured yet" });
+      }
+      const estateId = req.session.estateId;
+      if (!estateId) return res.status(400).json({ error: "No estate selected" });
+      const estate = await getEstateById(estateId);
+      if (!estate) return res.status(404).json({ error: "Estate not found" });
+      if (estate.status === "active") return res.json({ alreadyActive: true });
+
+      const origin = req.headers.origin || `https://${req.headers.host}`;
+      const form = new URLSearchParams();
+      form.set("mode", "payment");
+      form.set("success_url", `${origin}/admin?activated=1`);
+      form.set("cancel_url", `${origin}/admin`);
+      form.set("client_reference_id", estate.id);
+      if (process.env.STRIPE_PRICE_ID) {
+        form.set("line_items[0][price]", process.env.STRIPE_PRICE_ID);
+        form.set("line_items[0][quantity]", "1");
+      } else {
+        form.set("line_items[0][price_data][currency]", "usd");
+        form.set("line_items[0][price_data][product_data][name]", "Evenkeep — Estate Activation");
+        form.set("line_items[0][price_data][unit_amount]", process.env.STRIPE_ACTIVATION_AMOUNT || "9900");
+        form.set("line_items[0][quantity]", "1");
+      }
+
+      const resp = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: form.toString(),
+      });
+      const sessionData: any = await resp.json();
+      if (!resp.ok) {
+        console.error("[stripe] checkout error", sessionData);
+        return res.status(502).json({ error: "Could not start checkout" });
+      }
+      await updateEstate(estate.id, { stripeCheckoutId: sessionData.id });
+      res.json({ url: sessionData.url });
+    } catch (error) {
+      console.error("[stripe] checkout exception", error);
+      res.status(500).json({ error: "Could not start checkout" });
+    }
+  });
+
+  // Stripe webhook — verifies the signature against the raw body, then
+  // activates the estate once payment completes.
+  app.post("/api/billing/webhook", async (req, res) => {
+    try {
+      const secret = process.env.STRIPE_WEBHOOK_SECRET;
+      const sig = req.headers["stripe-signature"] as string | undefined;
+      const raw = (req as any).rawBody as Buffer | undefined;
+      if (secret && sig && raw) {
+        const parts = Object.fromEntries(sig.split(",").map((kv) => kv.split("=")));
+        const signedPayload = `${parts.t}.${raw.toString("utf8")}`;
+        const expected = createHmac("sha256", secret).update(signedPayload).digest("hex");
+        const a = Buffer.from(expected);
+        const b = Buffer.from(parts.v1 || "");
+        if (a.length !== b.length || !timingSafeEqual(a, b)) {
+          return res.status(400).json({ error: "Invalid signature" });
+        }
+      }
+      const event = JSON.parse(((req as any).rawBody as Buffer | undefined)?.toString("utf8") || "{}");
+      if (event.type === "checkout.session.completed") {
+        const estateId = event.data?.object?.client_reference_id;
+        if (estateId) {
+          await updateEstate(estateId, { status: "active", activatedAt: new Date() });
+        }
+      }
+      res.json({ received: true });
+    } catch (error) {
+      console.error("[stripe] webhook error", error);
+      res.status(400).json({ error: "Webhook error" });
+    }
+  });
+
+  // ============ MEDIA UPLOADS (object storage, env-gated) ============
+  // Direct browser → Vercel Blob uploads that bypass the serverless body limit.
+  // Inert until BLOB_READ_WRITE_TOKEN is set (client falls back to base64).
+  app.get("/api/uploads/status", (_req, res) => {
+    res.json({ enabled: !!process.env.BLOB_READ_WRITE_TOKEN });
+  });
+
+  app.post("/api/uploads", async (req, res) => {
+    try {
+      if (!process.env.BLOB_READ_WRITE_TOKEN) {
+        return res.status(503).json({ error: "Object storage not configured" });
+      }
+      // @vercel/blob reads a couple of headers off a web-style Request; shim it
+      // for Express so we don't need the whole Fetch API request object.
+      const requestShim = {
+        headers: { get: (k: string) => (req.headers[k.toLowerCase()] as string) ?? null },
+      } as any;
+
+      const jsonResponse = await handleUpload({
+        body: req.body as HandleUploadBody,
+        request: requestShim,
+        onBeforeGenerateToken: async (_pathname, clientPayload) => {
+          // Authorize: the caller must present a valid admin PIN for the current
+          // estate (resolved from the organizer session by tenant middleware).
+          let adminPin: string | null = null;
+          try {
+            adminPin = JSON.parse(clientPayload || "{}").adminPin ?? null;
+          } catch {
+            /* ignore */
+          }
+          const settings = await storage.getAppSettings();
+          if (!settings?.adminPin || !adminPin || settings.adminPin !== hashPin(adminPin)) {
+            throw new Error("Admin PIN required");
+          }
+          return {
+            allowedContentTypes: [
+              "image/jpeg", "image/png", "image/webp", "image/gif", "image/heic",
+              "audio/mpeg", "audio/mp4", "audio/webm", "audio/ogg", "audio/wav", "audio/x-m4a",
+            ],
+            maximumSizeInBytes: 25 * 1024 * 1024,
+            addRandomSuffix: true,
+          };
+        },
+        onUploadCompleted: async () => {
+          // No-op: the client captures the returned URL and saves it on the item.
+        },
+      });
+      res.json(jsonResponse);
+    } catch (error: any) {
+      res.status(400).json({ error: error?.message || "Upload authorization failed" });
+    }
+  });
+
   // ============ ADMIN PIN ============
 
   app.get("/api/admin/status", async (req, res) => {
@@ -123,7 +365,7 @@ export async function registerRoutes(
       }
       rateLimitClear(key);
 
-      if (data.heroPhoto && data.heroPhoto.length > 0 && !data.heroPhoto.startsWith("data:image/")) {
+      if (data.heroPhoto && data.heroPhoto.length > 0 && !data.heroPhoto.startsWith("data:image/") && !/^https:\/\//.test(data.heroPhoto)) {
         return res.status(400).json({ error: "Invalid image format" });
       }
       
@@ -348,6 +590,10 @@ export async function registerRoutes(
         res.set("Cache-Control", "public, max-age=3600");
         return res.send(buffer);
       }
+      // Object-storage URL — redirect to it.
+      if (/^https?:\/\//.test(settings.heroPhoto)) {
+        return res.redirect(settings.heroPhoto);
+      }
       res.status(404).json({ error: "Invalid photo data" });
     } catch (error) {
       res.status(500).json({ error: "Failed to get hero photo" });
@@ -368,7 +614,7 @@ export async function registerRoutes(
       if (!settings?.adminPin || settings.adminPin !== hashPin(data.pin)) {
         return res.status(401).json({ error: "Invalid admin PIN" });
       }
-      if (data.heroPhoto && data.heroPhoto.length > 0 && !data.heroPhoto.startsWith("data:image/")) {
+      if (data.heroPhoto && data.heroPhoto.length > 0 && !data.heroPhoto.startsWith("data:image/") && !/^https:\/\//.test(data.heroPhoto)) {
         return res.status(400).json({ error: "Invalid image format" });
       }
       const updates: Record<string, any> = {};
@@ -390,7 +636,9 @@ export async function registerRoutes(
   // Public-safe sanitizer: strips pin AND shareToken so public endpoints
   // never leak private tokens that would let anyone impersonate a sibling.
   const sanitizeSibling = (sibling: any) => {
-    const { pin, shareToken, ...rest } = sibling;
+    // Strip private/organizer-only fields so the public participant API never
+    // leaks another person's email, invite status, PIN, or share token.
+    const { pin, shareToken, email, invitedAt, ...rest } = sibling;
     return { ...rest, hasPin: !!pin };
   };
 
@@ -479,6 +727,7 @@ export async function registerRoutes(
     color: z.string().optional(),
     pin: z.string().length(4).regex(/^\d{4}$/).nullable().optional(),
     draftOrder: z.number().optional(),
+    email: z.union([z.string().email(), z.literal(""), z.null()]).optional(),
   });
 
   app.put("/api/siblings/:id", async (req, res) => {
@@ -488,10 +737,12 @@ export async function registerRoutes(
       }
       const data = updateSiblingSchema.parse(req.body);
       // Hash the PIN before storing, same as admin PIN
-      const updates = { ...data };
+      const updates: Record<string, any> = { ...data };
       if (data.pin !== undefined && data.pin !== null) {
         updates.pin = hashPin(data.pin);
       }
+      // Empty-string email clears it.
+      if (data.email === "") updates.email = null;
       const sibling = await storage.updateSibling(req.params.id, updates);
       if (!sibling) {
         return res.status(404).json({ error: "Sibling not found" });
@@ -502,6 +753,80 @@ export async function registerRoutes(
         return res.status(400).json({ error: error.errors });
       }
       res.status(500).json({ error: "Failed to update sibling" });
+    }
+  });
+
+  // ============ EMAIL INVITES ============
+  app.get("/api/email/status", (_req, res) => {
+    res.json({ enabled: emailEnabled() });
+  });
+
+  // Shared context for building/sending an invite (family branding + reply-to).
+  const inviteContext = async (req: any) => {
+    const settings = await storage.getAppSettings();
+    const estate = await getEstateById(currentEstateId());
+    let replyTo: string | undefined;
+    if (estate?.ownerId) {
+      const owner = await getOrganizerById(estate.ownerId);
+      replyTo = owner?.email || undefined;
+    }
+    const origin = (req.headers.origin as string) || `https://${req.headers.host}`;
+    return { settings, origin, replyTo };
+  };
+
+  const sendInvite = async (sibling: any, ctx: Awaited<ReturnType<typeof inviteContext>>) => {
+    const link = `${ctx.origin}/join/${sibling.shareToken}`;
+    const { subject, html } = buildInviteEmail({
+      recipientName: sibling.name,
+      familyName: ctx.settings?.familyName,
+      contactName: ctx.settings?.contactName,
+      link,
+    });
+    const result = await sendEmail({ to: sibling.email, subject, html, replyTo: ctx.replyTo });
+    if (result.ok) await storage.updateSibling(sibling.id, { invitedAt: new Date() });
+    return result;
+  };
+
+  app.post("/api/siblings/:id/invite", async (req, res) => {
+    try {
+      if (!(await verifyAdminPin(req))) {
+        return res.status(401).json({ error: "Admin PIN required" });
+      }
+      if (!emailEnabled()) {
+        return res.status(503).json({ error: "Email is not configured" });
+      }
+      const sibling = await storage.getSibling(req.params.id);
+      if (!sibling) return res.status(404).json({ error: "Sibling not found" });
+      if (!sibling.email) return res.status(400).json({ error: "This person has no email address" });
+      const result = await sendInvite(sibling, await inviteContext(req));
+      if (!result.ok) return res.status(502).json({ error: result.error || "Failed to send invite" });
+      const updated = await storage.getSibling(req.params.id);
+      res.json(sanitizeSiblingForAdmin(updated));
+    } catch (error) {
+      res.status(500).json({ error: "Failed to send invite" });
+    }
+  });
+
+  app.post("/api/siblings/invite-all", async (req, res) => {
+    try {
+      if (!(await verifyAdminPin(req))) {
+        return res.status(401).json({ error: "Admin PIN required" });
+      }
+      if (!emailEnabled()) {
+        return res.status(503).json({ error: "Email is not configured" });
+      }
+      const withEmail = (await storage.getAllSiblings()).filter((s) => s.email);
+      const ctx = await inviteContext(req);
+      let sent = 0;
+      const failures: string[] = [];
+      for (const s of withEmail) {
+        const r = await sendInvite(s, ctx);
+        if (r.ok) sent++;
+        else failures.push(s.name);
+      }
+      res.json({ sent, total: withEmail.length, failures });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to send invites" });
     }
   });
 
@@ -1205,6 +1530,15 @@ export async function registerRoutes(
     try {
       if (!(await verifyAdminPin(req))) {
         return res.status(401).json({ error: "Admin PIN required" });
+      }
+      // Billing gate: an estate must be activated before its draft can run.
+      // Only enforced when Stripe is configured, so local/dev and the legacy
+      // (already-active) deployment are unaffected.
+      if (process.env.STRIPE_SECRET_KEY) {
+        const estate = await getEstateById(currentEstateId());
+        if (estate && estate.status !== "active") {
+          return res.status(402).json({ error: "This estate needs to be activated before starting the draft.", needsActivation: true });
+        }
       }
       const allSiblings = await storage.getAllSiblings();
       if (allSiblings.length === 0) {
