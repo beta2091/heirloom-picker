@@ -7,7 +7,7 @@ import { z } from "zod";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { currentEstateId } from "./tenant";
 import { requireOrganizer } from "./auth";
-import { emailEnabled, sendEmail, buildInviteEmail } from "./email";
+import { emailEnabled, sendEmail, buildInviteEmail, buildPasswordResetEmail } from "./email";
 import { rateLimit, rateLimitClear } from "./ratelimit";
 import {
   createOrganizer,
@@ -18,6 +18,9 @@ import {
   getEstateById,
   getEstatesByOwner,
   updateEstate,
+  updateOrganizerPassword,
+  createPasswordReset,
+  consumePasswordReset,
 } from "./accounts";
 
 function hashPin(pin: string): string {
@@ -48,6 +51,17 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  // True when the request is from the logged-in organizer who owns the current
+  // estate. This is the modern path — an account holder IS the admin, so no PIN
+  // (and no "save this recovery code") is needed. The PIN remains a fallback for
+  // legacy estates that were set up before accounts existed.
+  const isEstateOrganizer = async (req: any): Promise<boolean> => {
+    const organizerId = req.session?.organizerId;
+    if (!organizerId) return false;
+    const estate = await getEstateById(currentEstateId());
+    return !!estate && estate.ownerId === organizerId;
+  };
+
   // ============ ORGANIZER ACCOUNTS ============
   const signupSchema = z.object({
     email: z.string().email(),
@@ -129,6 +143,53 @@ export async function registerRoutes(
     const me = await meResponse(req.session.organizerId);
     if (!me) return res.status(401).json({ error: "Not signed in" });
     res.json(me);
+  });
+
+  // Forgot password → email a reset link. Always responds success (never reveals
+  // whether an email is registered). Requires email (Resend) to be configured.
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const email = String(req.body?.email || "").trim();
+      const generic = { ok: true, emailEnabled: emailEnabled() };
+      if (!email) return res.json(generic);
+      const limited = await rateLimit(`forgot:${ipOf(req)}`, 5, 60 * 60 * 1000, 60 * 60 * 1000);
+      if (limited) return res.status(429).json({ error: `Too many attempts. Try again in ${limited}s.` });
+      if (!emailEnabled()) return res.json(generic);
+
+      const organizer = await getOrganizerByEmail(email);
+      if (organizer) {
+        const token = await createPasswordReset(organizer.id);
+        const origin = (req.headers.origin as string) || `https://${req.headers.host}`;
+        const link = `${origin}/reset-password?token=${token}`;
+        const { subject, html } = buildPasswordResetEmail({ link });
+        await sendEmail({ to: organizer.email, subject, html });
+      }
+      res.json(generic);
+    } catch (error) {
+      res.json({ ok: true, emailEnabled: emailEnabled() });
+    }
+  });
+
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const schema = z.object({ token: z.string().min(1), password: z.string().min(8) });
+      const data = schema.parse(req.body);
+      const organizerId = await consumePasswordReset(data.token);
+      if (!organizerId) {
+        return res.status(400).json({ error: "This reset link is invalid or has expired. Please request a new one." });
+      }
+      await updateOrganizerPassword(organizerId, data.password);
+      // Log them straight in.
+      const estates = await getEstatesByOwner(organizerId);
+      req.session.organizerId = organizerId;
+      req.session.estateId = estates[0]?.id;
+      res.json(await meResponse(organizerId));
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Password must be at least 8 characters" });
+      }
+      res.status(500).json({ error: "Failed to reset password" });
+    }
   });
 
   // ============ BILLING (Stripe, env-gated) ============
@@ -396,12 +457,12 @@ export async function registerRoutes(
     try {
       const schema = z.object({
         adminName: z.string().min(1).max(100),
-        pin: z.string().length(4).regex(/^\d{4}$/),
+        pin: z.string().optional(),
       });
       const data = schema.parse(req.body);
       const settings = await storage.getAppSettings();
       
-      if (!settings?.adminPin || settings.adminPin !== hashPin(data.pin)) {
+      if (!(await isEstateOrganizer(req)) && (!settings?.adminPin || settings.adminPin !== hashPin(data.pin ?? ""))) {
         return res.status(403).json({ error: "Incorrect PIN" });
       }
       
@@ -418,12 +479,12 @@ export async function registerRoutes(
   app.post("/api/admin/reset", async (req, res) => {
     try {
       const schema = z.object({
-        pin: z.string().length(4).regex(/^\d{4}$/),
+        pin: z.string().optional(),
       });
       const data = schema.parse(req.body);
       const settings = await storage.getAppSettings();
       
-      if (!settings?.adminPin || settings.adminPin !== hashPin(data.pin)) {
+      if (!(await isEstateOrganizer(req)) && (!settings?.adminPin || settings.adminPin !== hashPin(data.pin ?? ""))) {
         return res.status(403).json({ error: "Incorrect PIN" });
       }
       
@@ -473,7 +534,7 @@ export async function registerRoutes(
   });
 
   const adminDashboardSchema = z.object({
-    pin: z.string().length(4).regex(/^\d{4}$/),
+    pin: z.string().optional(),
   });
 
   app.post("/api/admin/dashboard", async (req, res) => {
@@ -488,7 +549,7 @@ export async function registerRoutes(
       }
       const data = adminDashboardSchema.parse(req.body);
       const settings = await storage.getAppSettings();
-      if (!settings?.adminPin || settings.adminPin !== hashPin(data.pin)) {
+      if (!(await isEstateOrganizer(req)) && (!settings?.adminPin || settings.adminPin !== hashPin(data.pin ?? ""))) {
         return res.status(401).json({ error: "Invalid admin PIN" });
       }
       await rateLimitClear(key);
@@ -559,7 +620,7 @@ export async function registerRoutes(
   });
 
   const familySettingsSchema = z.object({
-    pin: z.string().length(4).regex(/^\d{4}$/),
+    pin: z.string().optional(),
     familyName: z.string().max(100).optional(),
     contactName: z.string().max(100).optional(),
     heroPhoto: z.string().max(15 * 1024 * 1024).optional(),
@@ -569,7 +630,7 @@ export async function registerRoutes(
     try {
       const data = familySettingsSchema.parse(req.body);
       const settings = await storage.getAppSettings();
-      if (!settings?.adminPin || settings.adminPin !== hashPin(data.pin)) {
+      if (!(await isEstateOrganizer(req)) && (!settings?.adminPin || settings.adminPin !== hashPin(data.pin ?? ""))) {
         return res.status(401).json({ error: "Invalid admin PIN" });
       }
       if (data.heroPhoto && data.heroPhoto.length > 0 && !data.heroPhoto.startsWith("data:image/") && !/^https:\/\//.test(data.heroPhoto)) {
@@ -614,6 +675,9 @@ export async function registerRoutes(
   // both the same way (401). To surface 429 on the dedicated verify endpoints
   // we still rate-limit there explicitly.
   const verifyAdminPin = async (req: any): Promise<boolean> => {
+    // Account login is admin access.
+    if (await isEstateOrganizer(req)) return true;
+    // Legacy fallback: 4-digit admin PIN.
     const pin = (req.headers["x-admin-pin"] as string) || req.body?.adminPin || req.query?.adminPin;
     if (!pin) return false;
     const key = `admin-verify:${ipOf(req)}`;

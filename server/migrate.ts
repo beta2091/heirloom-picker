@@ -142,6 +142,12 @@ const statements = [
     reset_at BIGINT NOT NULL,
     blocked_until BIGINT NOT NULL DEFAULT 0
   )`,
+  // Password reset tokens (organizer account recovery via email).
+  sql`CREATE TABLE IF NOT EXISTS password_resets (
+    token_hash TEXT PRIMARY KEY,
+    organizer_id VARCHAR NOT NULL REFERENCES organizers(id),
+    expires_at BIGINT NOT NULL
+  )`,
 ];
 
 export async function runMigrations() {

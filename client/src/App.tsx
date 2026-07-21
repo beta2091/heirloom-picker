@@ -13,6 +13,7 @@ import Results from "@/pages/results";
 import OwnerPage from "@/pages/owner";
 import JoinPage from "@/pages/join";
 import Account from "@/pages/account";
+import ResetPassword from "@/pages/reset-password";
 
 function Router() {
   return (
@@ -21,6 +22,7 @@ function Router() {
       <Route path="/account" component={Account} />
       <Route path="/login" component={Account} />
       <Route path="/signup" component={Account} />
+      <Route path="/reset-password" component={ResetPassword} />
       <Route path="/admin" component={Admin} />
       <Route path="/sibling/:id" component={SiblingPage} />
       <Route path="/draft" component={Draft} />
