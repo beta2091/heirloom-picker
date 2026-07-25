@@ -7,7 +7,8 @@ import { z } from "zod";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { currentEstateId } from "./tenant";
 import { requireOrganizer } from "./auth";
-import { emailEnabled, sendEmail, buildInviteEmail } from "./email";
+import { emailEnabled, sendEmail, buildInviteEmail, buildPasswordResetEmail } from "./email";
+import { rateLimit, rateLimitClear } from "./ratelimit";
 import {
   createOrganizer,
   getOrganizerByEmail,
@@ -17,64 +18,24 @@ import {
   getEstateById,
   getEstatesByOwner,
   updateEstate,
+  updateOrganizerPassword,
+  createPasswordReset,
+  consumePasswordReset,
 } from "./accounts";
 
 function hashPin(pin: string): string {
   return createHash("sha256").update(`estate-draft-${pin}`).digest("hex").slice(0, 32);
 }
 
-// Simple in-memory rate limiter for PIN-verification endpoints. Single-instance
-// app on Railway, so in-memory is fine. Keyed by (ip + bucket) — e.g. admin
-// login attempts and per-sibling PIN attempts are tracked separately so
-// brute-forcing one sibling doesn't lock out another.
-type RateEntry = { count: number; resetAt: number; blockedUntil: number };
-const rateStore = new Map<string, RateEntry>();
-
+// Rate limiting is backed by Postgres (see ./ratelimit) so it survives across
+// serverless instances. Keyed by (ip + bucket) — e.g. admin login attempts and
+// per-sibling PIN attempts are tracked separately so brute-forcing one sibling
+// doesn't lock out another.
 const ipOf = (req: any): string => {
   const fwd = req.headers["x-forwarded-for"];
   if (typeof fwd === "string" && fwd.length > 0) return fwd.split(",")[0].trim();
   return req.ip || req.socket?.remoteAddress || "unknown";
 };
-
-// Returns null if allowed, or a seconds-remaining number if rate-limited.
-function rateLimit(key: string, maxAttempts = 5, windowMs = 15 * 60 * 1000, blockMs = 15 * 60 * 1000): number | null {
-  const now = Date.now();
-  const entry = rateStore.get(key);
-
-  // Currently in a block window
-  if (entry && entry.blockedUntil > now) {
-    return Math.ceil((entry.blockedUntil - now) / 1000);
-  }
-
-  // Expired window — reset
-  if (!entry || entry.resetAt < now) {
-    rateStore.set(key, { count: 1, resetAt: now + windowMs, blockedUntil: 0 });
-    return null;
-  }
-
-  entry.count += 1;
-  if (entry.count > maxAttempts) {
-    entry.blockedUntil = now + blockMs;
-    rateStore.set(key, entry);
-    return Math.ceil(blockMs / 1000);
-  }
-  rateStore.set(key, entry);
-  return null;
-}
-
-// Clear rate limit for a key (call on successful auth so you don't punish
-// the legitimate user after they finally get it right)
-function rateLimitClear(key: string) {
-  rateStore.delete(key);
-}
-
-// Periodic sweep to keep the map from growing unbounded
-setInterval(() => {
-  const now = Date.now();
-  rateStore.forEach((v, k) => {
-    if (v.blockedUntil < now && v.resetAt < now) rateStore.delete(k);
-  });
-}, 5 * 60 * 1000).unref?.();
 
 function generateRecoveryCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -90,6 +51,17 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  // True when the request is from the logged-in organizer who owns the current
+  // estate. This is the modern path — an account holder IS the admin, so no PIN
+  // (and no "save this recovery code") is needed. The PIN remains a fallback for
+  // legacy estates that were set up before accounts existed.
+  const isEstateOrganizer = async (req: any): Promise<boolean> => {
+    const organizerId = req.session?.organizerId;
+    if (!organizerId) return false;
+    const estate = await getEstateById(currentEstateId());
+    return !!estate && estate.ownerId === organizerId;
+  };
+
   // ============ ORGANIZER ACCOUNTS ============
   const signupSchema = z.object({
     email: z.string().email(),
@@ -123,7 +95,7 @@ export async function registerRoutes(
       if (existing) {
         return res.status(409).json({ error: "An account with this email already exists" });
       }
-      const limited = rateLimit(`signup:${ipOf(req)}`, 10, 60 * 60 * 1000, 60 * 60 * 1000);
+      const limited = await rateLimit(`signup:${ipOf(req)}`, 10, 60 * 60 * 1000, 60 * 60 * 1000);
       if (limited) return res.status(429).json({ error: `Too many attempts. Try again in ${limited}s.` });
 
       const organizer = await createOrganizer(data.email, data.password, data.name);
@@ -142,14 +114,14 @@ export async function registerRoutes(
   app.post("/api/auth/login", async (req, res) => {
     try {
       const data = loginSchema.parse(req.body);
-      const limited = rateLimit(`login:${ipOf(req)}`, 10, 15 * 60 * 1000, 15 * 60 * 1000);
+      const limited = await rateLimit(`login:${ipOf(req)}`, 10, 15 * 60 * 1000, 15 * 60 * 1000);
       if (limited) return res.status(429).json({ error: `Too many attempts. Try again in ${limited}s.` });
 
       const organizer = await getOrganizerByEmail(data.email);
       if (!organizer || !(await verifyPassword(data.password, organizer.passwordHash))) {
         return res.status(401).json({ error: "Invalid email or password" });
       }
-      rateLimitClear(`login:${ipOf(req)}`);
+      await rateLimitClear(`login:${ipOf(req)}`);
       const estates = await getEstatesByOwner(organizer.id);
       req.session.organizerId = organizer.id;
       req.session.estateId = estates[0]?.id;
@@ -171,6 +143,53 @@ export async function registerRoutes(
     const me = await meResponse(req.session.organizerId);
     if (!me) return res.status(401).json({ error: "Not signed in" });
     res.json(me);
+  });
+
+  // Forgot password → email a reset link. Always responds success (never reveals
+  // whether an email is registered). Requires email (Resend) to be configured.
+  app.post("/api/auth/forgot-password", async (req, res) => {
+    try {
+      const email = String(req.body?.email || "").trim();
+      const generic = { ok: true, emailEnabled: emailEnabled() };
+      if (!email) return res.json(generic);
+      const limited = await rateLimit(`forgot:${ipOf(req)}`, 5, 60 * 60 * 1000, 60 * 60 * 1000);
+      if (limited) return res.status(429).json({ error: `Too many attempts. Try again in ${limited}s.` });
+      if (!emailEnabled()) return res.json(generic);
+
+      const organizer = await getOrganizerByEmail(email);
+      if (organizer) {
+        const token = await createPasswordReset(organizer.id);
+        const origin = (req.headers.origin as string) || `https://${req.headers.host}`;
+        const link = `${origin}/reset-password?token=${token}`;
+        const { subject, html } = buildPasswordResetEmail({ link });
+        await sendEmail({ to: organizer.email, subject, html });
+      }
+      res.json(generic);
+    } catch (error) {
+      res.json({ ok: true, emailEnabled: emailEnabled() });
+    }
+  });
+
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const schema = z.object({ token: z.string().min(1), password: z.string().min(8) });
+      const data = schema.parse(req.body);
+      const organizerId = await consumePasswordReset(data.token);
+      if (!organizerId) {
+        return res.status(400).json({ error: "This reset link is invalid or has expired. Please request a new one." });
+      }
+      await updateOrganizerPassword(organizerId, data.password);
+      // Log them straight in.
+      const estates = await getEstatesByOwner(organizerId);
+      req.session.organizerId = organizerId;
+      req.session.estateId = estates[0]?.id;
+      res.json(await meResponse(organizerId));
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Password must be at least 8 characters" });
+      }
+      res.status(500).json({ error: "Failed to reset password" });
+    }
   });
 
   // ============ BILLING (Stripe, env-gated) ============
@@ -349,7 +368,7 @@ export async function registerRoutes(
       // Rate limit: protects both the first-setup race (attacker claiming
       // admin before the owner does) and wrong-currentPin brute forcing.
       const key = `admin-set-pin:${ipOf(req)}`;
-      const blockedFor = rateLimit(key, 5, 60 * 60 * 1000, 60 * 60 * 1000);
+      const blockedFor = await rateLimit(key, 5, 60 * 60 * 1000, 60 * 60 * 1000);
       if (blockedFor !== null) {
         return res.status(429).json({
           error: `Too many attempts. Try again in ${Math.ceil(blockedFor / 60)} minute(s).`,
@@ -363,7 +382,7 @@ export async function registerRoutes(
       if (settings?.adminPin && (!data.currentPin || settings.adminPin !== hashPin(data.currentPin))) {
         return res.status(403).json({ error: "Current PIN is incorrect" });
       }
-      rateLimitClear(key);
+      await rateLimitClear(key);
 
       if (data.heroPhoto && data.heroPhoto.length > 0 && !data.heroPhoto.startsWith("data:image/") && !/^https:\/\//.test(data.heroPhoto)) {
         return res.status(400).json({ error: "Invalid image format" });
@@ -394,7 +413,7 @@ export async function registerRoutes(
   app.post("/api/admin/recover", async (req, res) => {
     try {
       const key = `admin-recover:${ipOf(req)}`;
-      const blockedFor = rateLimit(key, 5, 60 * 60 * 1000, 60 * 60 * 1000);
+      const blockedFor = await rateLimit(key, 5, 60 * 60 * 1000, 60 * 60 * 1000);
       if (blockedFor !== null) {
         return res.status(429).json({
           error: `Too many attempts. Try again in ${Math.ceil(blockedFor / 60)} minute(s).`,
@@ -416,7 +435,7 @@ export async function registerRoutes(
       if (settings.recoveryCode !== data.recoveryCode) {
         return res.status(403).json({ error: "Invalid recovery code" });
       }
-      rateLimitClear(key);
+      await rateLimitClear(key);
       
       const newRecoveryCode = generateRecoveryCode();
       await storage.updateAppSettings({
@@ -438,12 +457,12 @@ export async function registerRoutes(
     try {
       const schema = z.object({
         adminName: z.string().min(1).max(100),
-        pin: z.string().length(4).regex(/^\d{4}$/),
+        pin: z.string().optional(),
       });
       const data = schema.parse(req.body);
       const settings = await storage.getAppSettings();
       
-      if (!settings?.adminPin || settings.adminPin !== hashPin(data.pin)) {
+      if (!(await isEstateOrganizer(req)) && (!settings?.adminPin || settings.adminPin !== hashPin(data.pin ?? ""))) {
         return res.status(403).json({ error: "Incorrect PIN" });
       }
       
@@ -460,12 +479,12 @@ export async function registerRoutes(
   app.post("/api/admin/reset", async (req, res) => {
     try {
       const schema = z.object({
-        pin: z.string().length(4).regex(/^\d{4}$/),
+        pin: z.string().optional(),
       });
       const data = schema.parse(req.body);
       const settings = await storage.getAppSettings();
       
-      if (!settings?.adminPin || settings.adminPin !== hashPin(data.pin)) {
+      if (!(await isEstateOrganizer(req)) && (!settings?.adminPin || settings.adminPin !== hashPin(data.pin ?? ""))) {
         return res.status(403).json({ error: "Incorrect PIN" });
       }
       
@@ -490,7 +509,7 @@ export async function registerRoutes(
   app.post("/api/admin/verify-pin", async (req, res) => {
     try {
       const key = `admin-pin:${ipOf(req)}`;
-      const blockedFor = rateLimit(key);
+      const blockedFor = await rateLimit(key);
       if (blockedFor !== null) {
         return res.status(429).json({
           error: `Too many attempts. Try again in ${Math.ceil(blockedFor / 60)} minute(s).`,
@@ -500,11 +519,11 @@ export async function registerRoutes(
       const data = verifyPinSchema.parse(req.body);
       const settings = await storage.getAppSettings();
       if (!settings?.adminPin) {
-        rateLimitClear(key);
+        await rateLimitClear(key);
         return res.json({ verified: true, hasPin: false });
       }
       const verified = settings.adminPin === hashPin(data.pin);
-      if (verified) rateLimitClear(key);
+      if (verified) await rateLimitClear(key);
       res.json({ verified, hasPin: true });
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -515,13 +534,13 @@ export async function registerRoutes(
   });
 
   const adminDashboardSchema = z.object({
-    pin: z.string().length(4).regex(/^\d{4}$/),
+    pin: z.string().optional(),
   });
 
   app.post("/api/admin/dashboard", async (req, res) => {
     try {
       const key = `admin-dashboard:${ipOf(req)}`;
-      const blockedFor = rateLimit(key);
+      const blockedFor = await rateLimit(key);
       if (blockedFor !== null) {
         return res.status(429).json({
           error: `Too many attempts. Try again in ${Math.ceil(blockedFor / 60)} minute(s).`,
@@ -530,10 +549,10 @@ export async function registerRoutes(
       }
       const data = adminDashboardSchema.parse(req.body);
       const settings = await storage.getAppSettings();
-      if (!settings?.adminPin || settings.adminPin !== hashPin(data.pin)) {
+      if (!(await isEstateOrganizer(req)) && (!settings?.adminPin || settings.adminPin !== hashPin(data.pin ?? ""))) {
         return res.status(401).json({ error: "Invalid admin PIN" });
       }
-      rateLimitClear(key);
+      await rateLimitClear(key);
       
       const siblings = await storage.getAllSiblings();
       const draft = await storage.getDraftState();
@@ -601,7 +620,7 @@ export async function registerRoutes(
   });
 
   const familySettingsSchema = z.object({
-    pin: z.string().length(4).regex(/^\d{4}$/),
+    pin: z.string().optional(),
     familyName: z.string().max(100).optional(),
     contactName: z.string().max(100).optional(),
     heroPhoto: z.string().max(15 * 1024 * 1024).optional(),
@@ -611,7 +630,7 @@ export async function registerRoutes(
     try {
       const data = familySettingsSchema.parse(req.body);
       const settings = await storage.getAppSettings();
-      if (!settings?.adminPin || settings.adminPin !== hashPin(data.pin)) {
+      if (!(await isEstateOrganizer(req)) && (!settings?.adminPin || settings.adminPin !== hashPin(data.pin ?? ""))) {
         return res.status(401).json({ error: "Invalid admin PIN" });
       }
       if (data.heroPhoto && data.heroPhoto.length > 0 && !data.heroPhoto.startsWith("data:image/") && !/^https:\/\//.test(data.heroPhoto)) {
@@ -656,15 +675,18 @@ export async function registerRoutes(
   // both the same way (401). To surface 429 on the dedicated verify endpoints
   // we still rate-limit there explicitly.
   const verifyAdminPin = async (req: any): Promise<boolean> => {
+    // Account login is admin access.
+    if (await isEstateOrganizer(req)) return true;
+    // Legacy fallback: 4-digit admin PIN.
     const pin = (req.headers["x-admin-pin"] as string) || req.body?.adminPin || req.query?.adminPin;
     if (!pin) return false;
     const key = `admin-verify:${ipOf(req)}`;
-    const blockedFor = rateLimit(key, 20, 15 * 60 * 1000, 15 * 60 * 1000);
+    const blockedFor = await rateLimit(key, 20, 15 * 60 * 1000, 15 * 60 * 1000);
     if (blockedFor !== null) return false;
     const settings = await storage.getAppSettings();
     if (!settings?.adminPin) return false;
     const ok = settings.adminPin === hashPin(pin);
-    if (ok) rateLimitClear(key);
+    if (ok) await rateLimitClear(key);
     return ok;
   };
 
@@ -834,7 +856,7 @@ export async function registerRoutes(
   app.post("/api/siblings/:id/verify-pin", async (req, res) => {
     try {
       const key = `sibling-pin:${req.params.id}:${ipOf(req)}`;
-      const blockedFor = rateLimit(key);
+      const blockedFor = await rateLimit(key);
       if (blockedFor !== null) {
         return res.status(429).json({
           error: `Too many attempts. Try again in ${Math.ceil(blockedFor / 60)} minute(s).`,
@@ -847,11 +869,11 @@ export async function registerRoutes(
         return res.status(404).json({ error: "Sibling not found" });
       }
       if (!sibling.pin) {
-        rateLimitClear(key);
+        await rateLimitClear(key);
         return res.json({ verified: true, hasPin: false });
       }
       const verified = sibling.pin === hashPin(pin);
-      if (verified) rateLimitClear(key);
+      if (verified) await rateLimitClear(key);
       res.json({ verified, hasPin: true });
     } catch (error) {
       res.status(500).json({ error: "Failed to verify PIN" });

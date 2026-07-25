@@ -135,6 +135,19 @@ const statements = [
     CONSTRAINT "session_pkey" PRIMARY KEY ("sid")
   )`,
   sql`CREATE INDEX IF NOT EXISTS "IDX_session_expire" ON "session" ("expire")`,
+  // Durable rate limiting (persists across serverless instances).
+  sql`CREATE TABLE IF NOT EXISTS rate_limits (
+    key TEXT PRIMARY KEY,
+    count INTEGER NOT NULL,
+    reset_at BIGINT NOT NULL,
+    blocked_until BIGINT NOT NULL DEFAULT 0
+  )`,
+  // Password reset tokens (organizer account recovery via email).
+  sql`CREATE TABLE IF NOT EXISTS password_resets (
+    token_hash TEXT PRIMARY KEY,
+    organizer_id VARCHAR NOT NULL REFERENCES organizers(id),
+    expires_at BIGINT NOT NULL
+  )`,
 ];
 
 export async function runMigrations() {

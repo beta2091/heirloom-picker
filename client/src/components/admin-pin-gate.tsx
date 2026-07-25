@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { apiRequest, queryClient, getQueryFn } from "@/lib/queryClient";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -68,6 +68,14 @@ export function AdminPinGate({ children, title = "Admin Access", description = "
   const { data: adminStatus, isLoading } = useQuery<{ hasAdminPin: boolean; adminName: string | null }>({
     queryKey: ["/api/admin/status"],
   });
+
+  // A logged-in organizer IS the admin — no PIN, no recovery code. Recovery is
+  // handled by the standard account "forgot password" flow instead.
+  const { data: authMe, isLoading: authLoading } = useQuery<{ organizer: { id: string; email: string; name: string | null } } | null>({
+    queryKey: ["/api/auth/me"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+  });
+  const isOrganizer = !!authMe?.organizer;
 
   const verifyPin = async () => {
     if (pinInput.length !== 4) return;
@@ -255,22 +263,26 @@ export function AdminPinGate({ children, title = "Admin Access", description = "
   }, [isVerified]);
 
   useEffect(() => {
-    if (!isLoading && redirectTo && !isVerified) {
+    // A logged-in organizer is always allowed — never bounce them.
+    if (!isLoading && !authLoading && !isOrganizer && redirectTo && !isVerified) {
       // Give the auto-verify effect above a tick to resolve before redirecting.
       // Only bounce after we've confirmed there's no usable session PIN.
       const stashed = sessionStorage.getItem("admin-pin");
       if (stashed && stashed.length === 4) return;
       setLocation(redirectTo);
     }
-  }, [isLoading, redirectTo, isVerified, setLocation]);
+  }, [isLoading, authLoading, isOrganizer, redirectTo, isVerified, setLocation]);
 
-  if (isLoading) {
+  if (isLoading || authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
+
+  // Logged-in organizer: straight through, no PIN and no setup wizard.
+  if (isOrganizer) return <>{renderChildren()}</>;
 
   if (redirectTo && !isVerified) {
     return (

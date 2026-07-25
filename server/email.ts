@@ -123,3 +123,36 @@ export function buildInviteEmail(args: {
 
   return { subject, html };
 }
+
+// Account password-reset email.
+export function buildPasswordResetEmail(args: { link: string }): { subject: string; html: string } {
+  const link = args.link;
+  const subject = "Reset your Evenkeep password";
+  const html = `<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#f6f1ea;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#2b2018;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f6f1ea;padding:32px 16px;">
+      <tr><td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#fbf7f1;border:1px solid #ece2d5;border-radius:16px;">
+          <tr><td style="padding:32px 32px 8px 32px;">
+            <div style="font-size:20px;font-weight:700;color:#b45a2b;font-family:Georgia,'Times New Roman',serif;">Evenkeep</div>
+          </td></tr>
+          <tr><td style="padding:8px 32px 0 32px;">
+            <h1 style="margin:0 0 12px 0;font-size:22px;font-weight:700;font-family:Georgia,'Times New Roman',serif;">Reset your password</h1>
+            <p style="margin:0 0 24px 0;font-size:16px;line-height:1.6;color:#5b4d3e;">Click the button below to choose a new password. This link expires in one hour.</p>
+          </td></tr>
+          <tr><td align="center" style="padding:0 32px 8px 32px;">
+            <a href="${link}" style="display:inline-block;background:#b45a2b;color:#ffffff;text-decoration:none;font-size:16px;font-weight:600;padding:14px 28px;border-radius:10px;">Reset password</a>
+          </td></tr>
+          <tr><td style="padding:16px 32px 32px 32px;">
+            <p style="margin:0 0 8px 0;font-size:13px;color:#8a7b69;">Or paste this link into your browser:</p>
+            <p style="margin:0 0 16px 0;font-size:13px;word-break:break-all;"><a href="${link}" style="color:#b45a2b;">${link}</a></p>
+            <p style="margin:16px 0 0 0;font-size:12px;color:#a1917d;">If you didn't request this, you can safely ignore it — your password won't change.</p>
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>`;
+  return { subject, html };
+}
