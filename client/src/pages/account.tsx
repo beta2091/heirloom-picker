@@ -1,14 +1,20 @@
-import { useState } from "react";
-import { useLocation } from "wouter";
+import { useEffect, useState } from "react";
+import { Link, useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { setEstateId } from "@/lib/tenant";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/logo";
+import { SiteFooter } from "@/components/site-footer";
 import { Loader2, ShieldCheck } from "lucide-react";
 
 type Mode = "login" | "signup" | "forgot";
+
+function modeFromPath(path: string): Mode {
+  if (path === "/login") return "login";
+  return "signup";
+}
 
 function cleanError(e: any): string {
   const msg = String(e?.message || "");
@@ -16,8 +22,13 @@ function cleanError(e: any): string {
 }
 
 export default function Account() {
-  const [, setLocation] = useLocation();
-  const [mode, setMode] = useState<Mode>("signup");
+  const [path, setLocation] = useLocation();
+  const [mode, setMode] = useState<Mode>(() => modeFromPath(path));
+
+  useEffect(() => {
+    const next = modeFromPath(path);
+    setMode((current) => (current === "forgot" ? current : next));
+  }, [path]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -58,9 +69,15 @@ export default function Account() {
     }
   };
 
-  const switchMode = (m: Mode) => { setError(""); setInfo(""); setMode(m); };
+  const switchMode = (m: Mode) => {
+    setError("");
+    setInfo("");
+    setMode(m);
+    if (m === "login") setLocation("/login");
+    else if (m === "signup") setLocation("/account");
+  };
 
-  const title = mode === "signup" ? "Create your estate" : mode === "forgot" ? "Reset your password" : "Welcome back";
+  const title = mode === "signup" ? "Create your estate" : mode === "forgot" ? "Reset your password" : "Sign in";
   const subtitle =
     mode === "signup"
       ? "Set up a private, fair draft for your family's belongings."
@@ -81,7 +98,9 @@ export default function Account() {
       />
       <div className="relative mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center px-5 py-12 sm:px-6">
         <div className="mb-8 flex justify-center">
-          <Logo />
+          <Link href="/" className="rounded-md" aria-label="Evenkeep home">
+            <Logo />
+          </Link>
         </div>
 
         <div className="w-full rounded-2xl border border-card-border bg-card p-8 shadow-lg">
@@ -152,6 +171,7 @@ export default function Account() {
           Private and secure by design
         </div>
       </div>
+      <SiteFooter tagline="Your family's draft stays on your estate — private by design." />
     </div>
   );
 }

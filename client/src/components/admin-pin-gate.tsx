@@ -614,11 +614,6 @@ export function AdminPinGate({ children, title = "Admin Access", description = "
         </div>
         <h2 className="font-serif text-3xl font-bold tracking-tight" data-testid="text-pin-title">{title}</h2>
         <p className="mt-3 text-base leading-relaxed text-muted-foreground">{description}</p>
-        {adminStatus?.adminName && (
-          <p className="mt-3 text-base" data-testid="text-admin-name">
-            Admin: <span className="font-medium text-foreground">{adminStatus.adminName}</span>
-          </p>
-        )}
       </div>
       <div className="space-y-5">
         <Input

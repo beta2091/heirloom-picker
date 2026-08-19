@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, getQueryFn } from "@/lib/queryClient";
+import { getEstateId } from "@/lib/tenant";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,25 +32,47 @@ interface SiblingResponse {
   hasPin: boolean;
 }
 
+interface ResultsPayload {
+  published: boolean;
+  siblings: SiblingResponse[];
+  items: ItemResponse[];
+  draft: { isActive: boolean; isComplete: boolean };
+}
+
 export default function Results() {
   const { toast } = useToast();
   const [zipBusy, setZipBusy] = useState<string | null>(null);
   const [assignDraft, setAssignDraft] = useState<Record<string, string>>({});
   const adminPin = typeof window !== "undefined" ? sessionStorage.getItem("admin-pin") || "" : "";
 
-  const { data: siblings = [], isLoading: siblingsLoading } = useQuery<SiblingResponse[]>({
-    queryKey: ["/api/siblings"],
+  const { data: authMe } = useQuery<{ organizer: { id: string } } | null>({
+    queryKey: ["/api/auth/me"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
   });
 
-  const { data: items = [], isLoading: itemsLoading } = useQuery<ItemResponse[]>({
-    queryKey: ["/api/items"],
+  const { data: results, isLoading } = useQuery<ResultsPayload>({
+    queryKey: ["/api/results", adminPin, !!authMe?.organizer],
+    queryFn: async () => {
+      const headers: Record<string, string> = {};
+      if (adminPin) headers["x-admin-pin"] = adminPin;
+      const estateId = getEstateId();
+      if (estateId) headers["x-estate-id"] = estateId;
+      const res = await fetch("/api/results", { credentials: "include", headers });
+      if (!res.ok) throw new Error("Failed to load results");
+      return res.json();
+    },
   });
+
+  const siblings = results?.siblings ?? [];
+  const items = results?.items ?? [];
+  const published = !!results?.published;
 
   const assignMutation = useMutation({
     mutationFn: async ({ itemId, siblingId }: { itemId: string; siblingId: string }) =>
       apiRequest("POST", `/api/items/${itemId}/assign`, { adminPin, siblingId }),
     onSuccess: (_d, vars) => {
       queryClient.invalidateQueries({ queryKey: ["/api/items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/results"] });
       const who = siblings.find(s => s.id === vars.siblingId);
       toast({ title: "Item assigned", description: who ? `Added to ${who.name}'s picks` : undefined });
     },
@@ -61,12 +84,12 @@ export default function Results() {
       apiRequest("POST", `/api/items/${itemId}/unassign`, { adminPin }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/items"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/results"] });
       toast({ title: "Item moved back to donation pool" });
     },
     onError: (err: any) => toast({ title: "Couldn't unassign", description: err?.message || "Admin PIN required.", variant: "destructive" }),
   });
 
-  const isLoading = siblingsLoading || itemsLoading;
   const pickedItems = items.filter(item => item.pickedBySiblingId);
   const unpickedItems = items.filter(item => !item.pickedBySiblingId);
 
@@ -248,7 +271,24 @@ export default function Results() {
       </header>
 
       <main className="mx-auto max-w-5xl px-5 sm:px-8 py-8 sm:py-12">
-        {pickedItems.length === 0 ? (
+        {!published ? (
+          <Card className="mx-auto max-w-xl rounded-2xl border-card-border p-6 shadow-sm">
+            <CardContent className="py-14 text-center">
+              <span className="mx-auto mb-6 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Heart className="h-6 w-6" />
+              </span>
+              <h2 className="font-serif text-2xl font-bold tracking-tight" data-testid="text-results-locked">
+                Results aren't public yet
+              </h2>
+              <p className="mx-auto mt-3 mb-7 max-w-md text-base leading-relaxed text-muted-foreground">
+                This page opens after the family finishes their draft. If you're the organizer, sign in to manage the estate.
+              </p>
+              <Link href="/login">
+                <Button className="min-h-12 px-8 text-base shadow-md" data-testid="button-results-signin">Sign in</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        ) : pickedItems.length === 0 ? (
           <Card className="mx-auto max-w-xl rounded-2xl border-card-border p-6 shadow-sm">
             <CardContent className="py-14 text-center">
               <span className="mx-auto mb-6 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">

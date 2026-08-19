@@ -14,6 +14,9 @@ import OwnerPage from "@/pages/owner";
 import JoinPage from "@/pages/join";
 import Account from "@/pages/account";
 import ResetPassword from "@/pages/reset-password";
+import LotteryPage from "@/pages/lottery";
+import SharePage from "@/pages/share";
+import { PrivacyPage, TermsPage, NotAWillPage } from "@/pages/legal";
 
 function Router() {
   return (
@@ -23,11 +26,16 @@ function Router() {
       <Route path="/login" component={Account} />
       <Route path="/signup" component={Account} />
       <Route path="/reset-password" component={ResetPassword} />
+      <Route path="/privacy" component={PrivacyPage} />
+      <Route path="/terms" component={TermsPage} />
+      <Route path="/legal" component={NotAWillPage} />
       <Route path="/admin" component={Admin} />
       <Route path="/sibling/:id" component={SiblingPage} />
       <Route path="/draft" component={Draft} />
       <Route path="/draft-master" component={DraftMaster} />
       <Route path="/results" component={Results} />
+      <Route path="/lottery" component={LotteryPage} />
+      <Route path="/share/:token" component={SharePage} />
       <Route path="/owner" component={OwnerPage} />
       <Route path="/join/:token" component={JoinPage} />
       <Route component={NotFound} />
