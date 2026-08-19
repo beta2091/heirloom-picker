@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Logo } from "@/components/logo";
 import { SiteFooter } from "@/components/site-footer";
+import { SeoHead } from "@/components/seo-head";
+import { SEO } from "@shared/seo";
 import { Loader2, ShieldCheck } from "lucide-react";
 
 type Mode = "login" | "signup" | "forgot";
@@ -92,6 +94,7 @@ export default function Account() {
 
   return (
     <div className="relative min-h-screen bg-background text-foreground">
+      <SeoHead page={mode === "login" ? SEO.login : SEO.account} />
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/[0.07] via-accent/[0.04] to-transparent"

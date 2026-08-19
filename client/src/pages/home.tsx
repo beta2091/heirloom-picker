@@ -1,7 +1,10 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Logo, LogoIcon } from "@/components/logo";
+import { LogoIcon } from "@/components/logo";
+import { MarketingHeader } from "@/components/marketing-header";
 import { SiteFooter } from "@/components/site-footer";
+import { SeoHead } from "@/components/seo-head";
+import { SEO } from "@shared/seo";
 import {
   Camera,
   Star,
@@ -62,32 +65,8 @@ const assurances = [
 export default function Home() {
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
-          <Link href="/" className="rounded-md" aria-label="Evenkeep home">
-            <Logo />
-          </Link>
-          <nav className="flex items-center gap-1 sm:gap-2">
-            <Link href="/login">
-              <Button
-                variant="ghost"
-                className="text-base text-muted-foreground hover:text-foreground"
-                data-testid="link-signin"
-              >
-                Sign in
-              </Button>
-            </Link>
-            <Link href="/account">
-              <Button
-                className="hidden text-base shadow-sm sm:inline-flex"
-                data-testid="link-create-estate"
-              >
-                Create your estate
-              </Button>
-            </Link>
-          </nav>
-        </div>
-      </header>
+      <SeoHead page={SEO.home} />
+      <MarketingHeader />
 
       <main>
         <section className="relative overflow-hidden">
@@ -120,14 +99,14 @@ export default function Home() {
                       <ArrowRight className="h-4 w-4" />
                     </Button>
                   </Link>
-                  <Link href="/login">
+                  <Link href="/demo">
                     <Button
                       size="lg"
                       variant="outline"
                       className="min-h-12 w-full px-8 text-base sm:w-auto"
-                      data-testid="button-signin-hero"
+                      data-testid="button-see-sample-hero"
                     >
-                      Sign in
+                      See a sample
                     </Button>
                   </Link>
                 </div>
@@ -170,7 +149,11 @@ export default function Home() {
                 Four unhurried steps
               </h2>
               <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
-                No pressure and no rush. Everyone moves at their own pace, and the fair part is handled for you.
+                No pressure and no rush. Everyone moves at their own pace, and the fair part is handled for you.{" "}
+                <Link href="/how-it-works" className="text-foreground underline underline-offset-4">
+                  Read the full walkthrough
+                </Link>
+                .
               </p>
             </div>
 

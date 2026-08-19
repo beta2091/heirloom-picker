@@ -9,3 +9,10 @@ node_modules
 # Build outputs copied to root for Vercel static serving
 /index.html
 /assets/
+/marketing/
+/how-it-works/
+/for-families/
+/for-professionals/
+/demo/
+/sitemap.xml
+/robots.txt
