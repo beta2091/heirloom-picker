@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { LogoIcon } from "@/components/logo";
 import { MarketingHeader } from "@/components/marketing-header";
+import { MarketingPhoto } from "@/components/marketing-photo";
 import { SiteFooter } from "@/components/site-footer";
 import { SeoHead } from "@/components/seo-head";
 import { SEO } from "@shared/seo";
@@ -123,14 +123,22 @@ export default function Home() {
                   aria-hidden="true"
                   className="absolute -inset-3 rounded-[1.75rem] bg-gradient-to-br from-primary/15 via-accent/10 to-transparent blur-2xl"
                 />
-                <div className="relative overflow-hidden rounded-2xl border border-card-border bg-card shadow-xl">
-                  <div className="flex aspect-[4/5] w-full flex-col items-center justify-center gap-5 bg-gradient-to-br from-secondary/60 to-card px-8 text-center">
-                    <LogoIcon className="h-20 w-20" />
-                    <p className="max-w-xs font-serif text-lg italic text-muted-foreground">
+                <figure className="relative overflow-hidden rounded-2xl border border-card-border bg-card shadow-xl">
+                  <MarketingPhoto
+                    src="/marketing/hero-keepsakes"
+                    alt="Letters tied with a ribbon, a pocket watch, a gold ring, and an open jewelry box resting on a wooden table in warm light."
+                    width={933}
+                    height={1400}
+                    eager
+                    testId="img-hero-keepsakes"
+                    imgClassName="aspect-[16/11] w-full object-cover object-[center_42%] sm:aspect-[4/5] sm:max-h-[28rem] lg:max-h-none"
+                  />
+                  <figcaption className="border-t border-card-border px-6 py-4 text-center">
+                    <p className="font-serif text-base italic leading-relaxed text-muted-foreground sm:text-lg">
                       Every object holds a memory. Let's keep them all in good hands.
                     </p>
-                  </div>
-                </div>
+                  </figcaption>
+                </figure>
               </div>
             </div>
           </div>
@@ -184,6 +192,74 @@ export default function Home() {
                 );
               })}
             </ol>
+          </div>
+        </section>
+
+        <section aria-label="Belongings on the table">
+          <figure className="relative">
+            <MarketingPhoto
+              src="/marketing/table-catalog"
+              alt="A teapot, folded quilt, eyeglasses, handwritten card, and a small leather book arranged on a wooden table."
+              width={1536}
+              height={1024}
+              testId="img-table-catalog"
+              imgClassName="h-56 w-full object-cover object-center sm:h-72 lg:h-[26rem]"
+            />
+            <figcaption className="border-y border-border bg-card/70 px-5 py-4 text-center sm:px-8">
+              <p className="mx-auto max-w-2xl font-serif text-base italic leading-relaxed text-muted-foreground sm:text-lg">
+                The table before anyone chooses — each piece photographed, then
+                given a fair turn.
+              </p>
+            </figcaption>
+          </figure>
+        </section>
+
+        <section className="bg-background">
+          <div className="mx-auto max-w-6xl px-5 py-14 sm:px-8 sm:py-16">
+            <div className="mx-auto max-w-2xl text-center">
+              <p className="text-sm font-semibold uppercase tracking-[0.14em] text-primary">
+                The belongings
+              </p>
+              <h2 className="mt-3 font-serif text-3xl font-bold tracking-tight sm:text-4xl">
+                Quiet objects, carefully recorded.
+              </h2>
+              <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
+                A photograph, and a note when a piece has a story. That is enough
+                to begin.
+              </p>
+            </div>
+            <ul className="mx-auto mt-10 grid max-w-4xl gap-5 sm:grid-cols-2">
+              <li>
+                <figure className="overflow-hidden rounded-2xl border border-card-border bg-card shadow-sm">
+                  <MarketingPhoto
+                    src="/marketing/locket"
+                    alt="A gold floral locket and a dried flower beside a cup of tea on folded linen."
+                    width={1400}
+                    height={933}
+                    testId="img-gallery-locket"
+                    imgClassName="aspect-[4/3] w-full object-cover"
+                  />
+                  <figcaption className="px-5 py-4 font-serif text-sm italic leading-relaxed text-muted-foreground sm:text-base">
+                    Some pieces are small. They still need a careful home.
+                  </figcaption>
+                </figure>
+              </li>
+              <li>
+                <figure className="overflow-hidden rounded-2xl border border-card-border bg-card shadow-sm">
+                  <MarketingPhoto
+                    src="/marketing/photographing"
+                    alt="A phone lying next to a wooden chair, used to photograph the chair for a family catalog."
+                    width={1400}
+                    height={933}
+                    testId="img-gallery-photographing"
+                    imgClassName="aspect-[4/3] w-full object-cover"
+                  />
+                  <figcaption className="px-5 py-4 font-serif text-sm italic leading-relaxed text-muted-foreground sm:text-base">
+                    Someone gathers the items — a photo, then a note if there's a memory to keep.
+                  </figcaption>
+                </figure>
+              </li>
+            </ul>
           </div>
         </section>
 
