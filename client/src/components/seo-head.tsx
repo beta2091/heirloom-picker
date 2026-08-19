@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import {
   DEFAULT_OG_IMAGE,
+  JSON_LD_SCRIPT_ID,
   SITE_ORIGIN,
   type SeoPage,
 } from "@shared/seo";
@@ -26,6 +27,21 @@ function upsertCanonical(href: string) {
   el.setAttribute("href", href);
 }
 
+function upsertJsonLd(data: unknown | undefined) {
+  let el = document.getElementById(JSON_LD_SCRIPT_ID) as HTMLScriptElement | null;
+  if (data == null) {
+    el?.remove();
+    return;
+  }
+  if (!el) {
+    el = document.createElement("script");
+    el.id = JSON_LD_SCRIPT_ID;
+    el.type = "application/ld+json";
+    document.head.appendChild(el);
+  }
+  el.textContent = JSON.stringify(data);
+}
+
 /** Sets unique title, description, and Open Graph tags for a public page. */
 export function SeoHead({ page }: { page: SeoPage }) {
   useEffect(() => {
@@ -39,7 +55,7 @@ export function SeoHead({ page }: { page: SeoPage }) {
     upsertMeta("name", "description", page.description);
     upsertMeta("property", "og:title", ogTitle);
     upsertMeta("property", "og:description", ogDescription);
-    upsertMeta("property", "og:type", "website");
+    upsertMeta("property", "og:type", page.ogType ?? "website");
     upsertMeta("property", "og:url", url);
     upsertMeta("property", "og:site_name", "Evenkeep");
     upsertMeta("property", "og:image", image);
@@ -47,6 +63,7 @@ export function SeoHead({ page }: { page: SeoPage }) {
     upsertMeta("name", "twitter:title", ogTitle);
     upsertMeta("name", "twitter:description", ogDescription);
     upsertMeta("name", "twitter:image", image);
+    upsertJsonLd(page.jsonLd);
   }, [page]);
 
   return null;

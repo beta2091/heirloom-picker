@@ -201,6 +201,22 @@ export default function HowItWorksPage() {
             <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
               Ratings stay with the person who made them until the draft. Elderly relatives get a large, gentle screen from a texted link — not a store app and not a login to remember.
             </p>
+            <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
+              Families also ask about stickers, points-bidding, and selling the house contents. Those methods have a place. A private turn-based draft is the kinder option when the list is mostly keepsakes. The longer guides —{" "}
+              <Link href="/guides/divide-parents-belongings-fairly" className="text-foreground underline underline-offset-4">
+                dividing a parent&apos;s belongings fairly
+              </Link>
+              ,{" "}
+              <Link href="/guides/siblings-fighting-over-things" className="text-foreground underline underline-offset-4">
+                siblings fighting over things
+              </Link>
+              , and{" "}
+              <Link href="/guides/executor-personal-property" className="text-foreground underline underline-offset-4">
+                how executors can divide personal property
+              </Link>
+              {" "}
+              — walk through that choice without asking you to buy anything first.
+            </p>
             <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
               <Link href="/account">
                 <Button size="lg" className="min-h-12 w-full gap-2 px-8 text-base shadow-md sm:w-auto">

@@ -179,6 +179,18 @@ export default function ForFamiliesPage() {
               <Link href="/how-it-works" className="text-foreground underline underline-offset-4">
                 See how it works
               </Link>
+              . For the methods families already try, start with{" "}
+              <Link href="/guides/divide-parents-belongings-fairly" className="text-foreground underline underline-offset-4">
+                how to divide a parent&apos;s belongings fairly
+              </Link>
+              . If the hallway conversations have already gone sharp, read{" "}
+              <Link href="/guides/siblings-fighting-over-things" className="text-foreground underline underline-offset-4">
+                when siblings start fighting over things
+              </Link>
+              . Executors can skip ahead to{" "}
+              <Link href="/guides/executor-personal-property" className="text-foreground underline underline-offset-4">
+                dividing personal property without becoming the judge
+              </Link>
               .
             </p>
             <LegalNote className="mx-auto mt-6 max-w-lg text-sm leading-relaxed text-muted-foreground" />

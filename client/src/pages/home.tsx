@@ -263,6 +263,63 @@ export default function Home() {
           </div>
         </section>
 
+        <section className="border-t border-border bg-card/40" data-testid="section-guides">
+          <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20">
+            <div className="mx-auto max-w-2xl text-center">
+              <p className="text-sm font-semibold uppercase tracking-[0.14em] text-primary">
+                Guides for a hard week
+              </p>
+              <h2 className="mt-3 font-serif text-3xl font-bold tracking-tight sm:text-4xl">
+                Practical pages, written for the search you actually make.
+              </h2>
+              <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
+                These are long guides, not ads. They cover the methods families already hear about — and when a private draft is the kinder option.
+              </p>
+            </div>
+            <ul className="mx-auto mt-12 grid max-w-5xl gap-5 lg:grid-cols-3">
+              <li className="flex h-full flex-col rounded-2xl border border-card-border bg-card p-7 shadow-sm">
+                <h3 className="font-serif text-lg font-semibold">
+                  <Link
+                    href="/guides/divide-parents-belongings-fairly"
+                    className="text-foreground underline underline-offset-4"
+                  >
+                    How to divide a parent&apos;s belongings fairly
+                  </Link>
+                </h3>
+                <p className="mt-2 text-base leading-relaxed text-muted-foreground">
+                  Stickers, points, selling, and a snake draft — written for siblings sharing a leftover list.
+                </p>
+              </li>
+              <li className="flex h-full flex-col rounded-2xl border border-card-border bg-card p-7 shadow-sm">
+                <h3 className="font-serif text-lg font-semibold">
+                  <Link
+                    href="/guides/siblings-fighting-over-things"
+                    className="text-foreground underline underline-offset-4"
+                  >
+                    When siblings start fighting over things
+                  </Link>
+                </h3>
+                <p className="mt-2 text-base leading-relaxed text-muted-foreground">
+                  What to pause, what not to do in the hallway, and how a private ranking can lower the temperature.
+                </p>
+              </li>
+              <li className="flex h-full flex-col rounded-2xl border border-card-border bg-card p-7 shadow-sm">
+                <h3 className="font-serif text-lg font-semibold">
+                  <Link
+                    href="/guides/executor-personal-property"
+                    className="text-foreground underline underline-offset-4"
+                  >
+                    A calmer way for executors to divide personal property
+                  </Link>
+                </h3>
+                <p className="mt-2 text-base leading-relaxed text-muted-foreground">
+                  Stay the clerk of the draft, not the judge of the quilt. For the person holding the keys.
+                </p>
+              </li>
+            </ul>
+          </div>
+        </section>
+
         <section className="border-t border-border" data-testid="section-pricing">
           <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20 lg:py-24">
             <div className="mx-auto max-w-2xl text-center">

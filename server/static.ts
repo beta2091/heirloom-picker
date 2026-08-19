@@ -1,6 +1,7 @@
 import express, { type Express, type Request, type Response } from "express";
 import fs from "fs";
 import path from "path";
+import { PRERENDER_PAGES } from "@shared/seo";
 
 export function serveStatic(app: Express) {
   const distPath = path.resolve(__dirname, "public");
@@ -13,12 +14,12 @@ export function serveStatic(app: Express) {
   app.use(express.static(distPath));
 
   // Prefer the prerendered marketing HTML (unique title / OG tags) when present.
-  const marketingSlugs = ["how-it-works", "for-families", "for-professionals", "demo"];
-  for (const slug of marketingSlugs) {
+  for (const page of PRERENDER_PAGES) {
+    const slug = page.path.replace(/^\//, "");
     const file = path.resolve(distPath, slug, "index.html");
     const send = (_req: Request, res: Response) => res.sendFile(file);
-    app.get(`/${slug}`, send);
-    app.get(`/${slug}/`, send);
+    app.get(page.path, send);
+    app.get(`${page.path}/`, send);
   }
 
   // fall through to index.html if the file doesn't exist

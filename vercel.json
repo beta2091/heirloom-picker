@@ -7,6 +7,9 @@
     { "source": "/for-families", "destination": "/for-families/index.html" },
     { "source": "/for-professionals", "destination": "/for-professionals/index.html" },
     { "source": "/demo", "destination": "/demo/index.html" },
+    { "source": "/guides/divide-parents-belongings-fairly", "destination": "/guides/divide-parents-belongings-fairly/index.html" },
+    { "source": "/guides/siblings-fighting-over-things", "destination": "/guides/siblings-fighting-over-things/index.html" },
+    { "source": "/guides/executor-personal-property", "destination": "/guides/executor-personal-property/index.html" },
     { "source": "/:path*", "destination": "/index.html" }
   ]
 }
