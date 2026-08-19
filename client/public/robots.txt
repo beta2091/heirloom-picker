@@ -1,0 +1,14 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /sibling/
+Disallow: /draft
+Disallow: /draft-master
+Disallow: /lottery
+Disallow: /owner
+Disallow: /join/
+Disallow: /share/
+Disallow: /reset-password
+Disallow: /api/
+
+Sitemap: https://evenkeep.app/sitemap.xml

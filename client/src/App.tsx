@@ -17,11 +17,19 @@ import ResetPassword from "@/pages/reset-password";
 import LotteryPage from "@/pages/lottery";
 import SharePage from "@/pages/share";
 import { PrivacyPage, TermsPage, NotAWillPage } from "@/pages/legal";
+import HowItWorksPage from "@/pages/how-it-works";
+import ForFamiliesPage from "@/pages/for-families";
+import ForProfessionalsPage from "@/pages/for-professionals";
+import DemoPage from "@/pages/demo";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/how-it-works" component={HowItWorksPage} />
+      <Route path="/for-families" component={ForFamiliesPage} />
+      <Route path="/for-professionals" component={ForProfessionalsPage} />
+      <Route path="/demo" component={DemoPage} />
       <Route path="/account" component={Account} />
       <Route path="/login" component={Account} />
       <Route path="/signup" component={Account} />

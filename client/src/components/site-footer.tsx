@@ -16,6 +16,18 @@ export function SiteFooter({
         </Link>
         <p className="max-w-md text-base text-muted-foreground">{tagline}</p>
         <nav className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
+          <Link href="/how-it-works" className="hover:text-foreground" data-testid="link-how-it-works">
+            How it works
+          </Link>
+          <Link href="/for-families" className="hover:text-foreground" data-testid="link-for-families">
+            For families
+          </Link>
+          <Link href="/for-professionals" className="hover:text-foreground" data-testid="link-for-professionals">
+            For professionals
+          </Link>
+          <Link href="/demo" className="hover:text-foreground" data-testid="link-demo">
+            Sample estate
+          </Link>
           <Link href="/privacy" className="hover:text-foreground" data-testid="link-privacy">
             Privacy
           </Link>

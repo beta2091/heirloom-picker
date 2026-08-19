@@ -1,34 +1,25 @@
 import type { ReactNode } from "react";
 import { Link } from "wouter";
-import { Logo } from "@/components/logo";
+import { MarketingHeader } from "@/components/marketing-header";
 import { SiteFooter } from "@/components/site-footer";
-import { ArrowLeft } from "lucide-react";
+import { SeoHead } from "@/components/seo-head";
+import { SEO, type SeoPage } from "@shared/seo";
 
 function LegalShell({
   title,
   updated,
+  seo,
   children,
 }: {
   title: string;
   updated: string;
+  seo: SeoPage;
   children: ReactNode;
 }) {
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur-md">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
-          <Link href="/" className="rounded-md" aria-label="Evenkeep home">
-            <Logo />
-          </Link>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Home
-          </Link>
-        </div>
-      </header>
+      <SeoHead page={seo} />
+      <MarketingHeader />
       <main className="mx-auto max-w-3xl px-5 py-12 sm:px-8 sm:py-16">
         <p className="text-sm font-semibold uppercase tracking-[0.14em] text-primary">Evenkeep</p>
         <h1 className="mt-3 font-serif text-4xl font-bold tracking-tight">{title}</h1>
@@ -44,7 +35,7 @@ function LegalShell({
 
 export function PrivacyPage() {
   return (
-    <LegalShell title="Privacy Policy" updated="August 19, 2026">
+    <LegalShell title="Privacy Policy" updated="August 19, 2026" seo={SEO.privacy}>
       <section>
         <h2>What Evenkeep is for</h2>
         <p>
@@ -107,7 +98,7 @@ export function PrivacyPage() {
 
 export function TermsPage() {
   return (
-    <LegalShell title="Terms of Use" updated="August 19, 2026">
+    <LegalShell title="Terms of Use" updated="August 19, 2026" seo={SEO.terms}>
       <section>
         <h2>The service</h2>
         <p>
@@ -172,7 +163,7 @@ export function TermsPage() {
 
 export function NotAWillPage() {
   return (
-    <LegalShell title="Not a will — not legal advice" updated="August 19, 2026">
+    <LegalShell title="Not a will — not legal advice" updated="August 19, 2026" seo={SEO.legal}>
       <section>
         <h2>A gentle, important boundary</h2>
         <p>
