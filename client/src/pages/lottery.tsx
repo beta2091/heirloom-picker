@@ -311,6 +311,9 @@ function easeOutQuart(t: number) {
 
 interface AdminStatus {
   hasAdminPin: boolean;
+}
+
+interface FamilySettings {
   contactName: string | null;
 }
 
@@ -331,6 +334,9 @@ export default function LotteryPage() {
 
   const { data: adminStatus } = useQuery<AdminStatus>({
     queryKey: ["/api/admin/status"],
+  });
+  const { data: familySettings } = useQuery<FamilySettings>({
+    queryKey: ["/api/family-settings"],
   });
 
   const { data: participants = [], isLoading } = useQuery<LotteryParticipant[]>({
@@ -622,7 +628,7 @@ export default function LotteryPage() {
                       <p className="text-base text-muted-foreground" data-testid="text-draft-order-set">
                         Draft order is set. Watch for{" "}
                         <span className="font-semibold text-primary">
-                          {adminStatus?.contactName || "the admin"}
+                          {familySettings?.contactName || "the admin"}
                         </span>{" "}
                         to start the draft.
                       </p>

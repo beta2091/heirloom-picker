@@ -306,17 +306,19 @@ export async function registerRoutes(
         body: req.body as HandleUploadBody,
         request: requestShim,
         onBeforeGenerateToken: async (_pathname, clientPayload) => {
-          // Authorize: the caller must present a valid admin PIN for the current
-          // estate (resolved from the organizer session by tenant middleware).
-          let adminPin: string | null = null;
-          try {
-            adminPin = JSON.parse(clientPayload || "{}").adminPin ?? null;
-          } catch {
-            /* ignore */
-          }
-          const settings = await storage.getAppSettings();
-          if (!settings?.adminPin || !adminPin || settings.adminPin !== hashPin(adminPin)) {
-            throw new Error("Admin PIN required");
+          // Authorize: logged-in organizer for this estate, or a valid admin PIN
+          // (legacy estates that predate organizer accounts).
+          if (!(await isEstateOrganizer(req))) {
+            let adminPin: string | null = null;
+            try {
+              adminPin = JSON.parse(clientPayload || "{}").adminPin ?? null;
+            } catch {
+              /* ignore */
+            }
+            const settings = await storage.getAppSettings();
+            if (!settings?.adminPin || !adminPin || settings.adminPin !== hashPin(adminPin)) {
+              throw new Error("Admin PIN required");
+            }
           }
           return {
             allowedContentTypes: [
@@ -342,13 +344,22 @@ export async function registerRoutes(
   app.get("/api/admin/status", async (req, res) => {
     try {
       const settings = await storage.getAppSettings();
-      res.json({ 
+      // Anonymous callers only learn whether a PIN exists — never the
+      // organizer's real name or family identifiers. Names are returned
+      // only to the logged-in organizer or a request that presents the PIN.
+      const pin = (req.headers["x-admin-pin"] as string) || "";
+      const pinOk = !!(settings?.adminPin && pin && settings.adminPin === hashPin(pin));
+      const privileged = pinOk || (await isEstateOrganizer(req));
+      const payload: Record<string, unknown> = {
         hasAdminPin: !!settings?.adminPin,
-        adminName: settings?.adminName || null,
-        familyName: settings?.familyName || null,
-        contactName: settings?.contactName || null,
-        hasHeroPhoto: !!settings?.heroPhoto,
-      });
+      };
+      if (privileged) {
+        payload.adminName = settings?.adminName || null;
+        payload.familyName = settings?.familyName || null;
+        payload.contactName = settings?.contactName || null;
+        payload.hasHeroPhoto = !!settings?.heroPhoto;
+      }
+      res.json(payload);
     } catch (error) {
       res.status(500).json({ error: "Failed to get admin status" });
     }
@@ -958,6 +969,44 @@ export async function registerRoutes(
       res.json(items.map(stripBlobFields));
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch items" });
+    }
+  });
+
+  // Public results: only after the draft has picks or is complete.
+  // Unpublished / empty estates do not list family names or items.
+  // Organizers (session) and legacy PIN admins can always see their own estate.
+  app.get("/api/results", async (req, res) => {
+    try {
+      const draft = await storage.getDraftState();
+      const items = await storage.getAllItems();
+      const picked = items.filter((item) => item.pickedBySiblingId);
+      const published = !!(draft?.isComplete || picked.length > 0);
+      const privileged = await verifyAdminPin(req);
+
+      if (!published && !privileged) {
+        return res.json({
+          published: false,
+          siblings: [],
+          items: [],
+          draft: {
+            isActive: draft?.isActive || false,
+            isComplete: draft?.isComplete || false,
+          },
+        });
+      }
+
+      const siblings = await storage.getAllSiblings();
+      res.json({
+        published: true,
+        siblings: siblings.map(sanitizeSibling),
+        items: items.map(stripBlobFields),
+        draft: {
+          isActive: draft?.isActive || false,
+          isComplete: draft?.isComplete || false,
+        },
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch results" });
     }
   });
 

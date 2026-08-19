@@ -1,24 +1,18 @@
 import { Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Logo, LogoIcon } from "@/components/logo";
+import { SiteFooter } from "@/components/site-footer";
 import {
   Camera,
   Star,
   Scale,
   HandHeart,
   ArrowRight,
-  Loader2,
   ShieldCheck,
   Users,
   Heart,
+  Gift,
 } from "lucide-react";
-
-interface FamilySettings {
-  familyName: string | null;
-  contactName: string | null;
-  hasHeroPhoto: boolean;
-}
 
 const steps = [
   {
@@ -66,34 +60,15 @@ const assurances = [
 ];
 
 export default function Home() {
-  const { data: settings, isLoading } = useQuery<FamilySettings>({
-    queryKey: ["/api/family-settings"],
-  });
-
-  const familyName = settings?.familyName || null;
-  const contactName = settings?.contactName || "the admin";
-  const heroPhotoSrc = settings?.hasHeroPhoto ? "/api/family-settings/hero-photo" : null;
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* ------------------------------------------------------------------ */}
-      {/* Header                                                             */}
-      {/* ------------------------------------------------------------------ */}
       <header className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 sm:px-8">
           <Link href="/" className="rounded-md" aria-label="Evenkeep home">
             <Logo />
           </Link>
           <nav className="flex items-center gap-1 sm:gap-2">
-            <Link href="/account">
+            <Link href="/login">
               <Button
                 variant="ghost"
                 className="text-base text-muted-foreground hover:text-foreground"
@@ -102,13 +77,12 @@ export default function Home() {
                 Sign in
               </Button>
             </Link>
-            <Link href="/admin">
+            <Link href="/account">
               <Button
-                variant="ghost"
-                className="hidden text-base text-muted-foreground hover:text-foreground sm:inline-flex"
-                data-testid="link-admin"
+                className="hidden text-base shadow-sm sm:inline-flex"
+                data-testid="link-create-estate"
               >
-                Manage
+                Create your estate
               </Button>
             </Link>
           </nav>
@@ -116,18 +90,13 @@ export default function Home() {
       </header>
 
       <main>
-        {/* ---------------------------------------------------------------- */}
-        {/* Hero                                                             */}
-        {/* ---------------------------------------------------------------- */}
         <section className="relative overflow-hidden">
-          {/* Soft warm wash behind the hero */}
           <div
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/[0.07] via-accent/[0.04] to-transparent"
           />
           <div className="relative mx-auto max-w-6xl px-5 pb-16 pt-14 sm:px-8 sm:pb-20 sm:pt-20 lg:pb-28 lg:pt-24">
             <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
-              {/* Copy column */}
               <div className="text-center lg:text-left">
                 <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-sm font-medium text-muted-foreground shadow-xs">
                   <Heart className="h-4 w-4 text-primary" />
@@ -138,9 +107,7 @@ export default function Home() {
                   <span className="block text-primary">with fairness and care.</span>
                 </h1>
                 <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground lg:mx-0">
-                  {familyName
-                    ? `A calm, private place for the ${familyName} family to share a loved one's belongings — so every keepsake lands with someone who'll treasure it, and the family stays whole.`
-                    : "A calm, private place for your family to share a loved one's belongings — so every keepsake lands with someone who'll treasure it, and the family stays whole."}
+                  A calm, private place for your family to share a loved one's belongings — so every keepsake lands with someone who'll treasure it, and the family stays whole.
                 </p>
                 <div className="mt-8 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-center lg:justify-start">
                   <Link href="/account">
@@ -153,7 +120,7 @@ export default function Home() {
                       <ArrowRight className="h-4 w-4" />
                     </Button>
                   </Link>
-                  <Link href="/account">
+                  <Link href="/login">
                     <Button
                       size="lg"
                       variant="outline"
@@ -164,42 +131,32 @@ export default function Home() {
                     </Button>
                   </Link>
                 </div>
-                <p className="mt-5 text-sm text-muted-foreground">
-                  A family member? Check your text messages for your private link.
+                <p className="mt-5 text-sm text-muted-foreground" data-testid="text-price-note">
+                  Free to set up and invite. <span className="font-medium text-foreground">$99 once</span> when you're ready to run the live draft and export.
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  A family member? Check your messages for your private link.
                 </p>
               </div>
 
-              {/* Visual column */}
               <div className="relative mx-auto w-full max-w-md lg:max-w-none">
                 <div
                   aria-hidden="true"
                   className="absolute -inset-3 rounded-[1.75rem] bg-gradient-to-br from-primary/15 via-accent/10 to-transparent blur-2xl"
                 />
                 <div className="relative overflow-hidden rounded-2xl border border-card-border bg-card shadow-xl">
-                  {heroPhotoSrc ? (
-                    <img
-                      src={heroPhotoSrc}
-                      alt="Our family"
-                      className="h-auto max-h-[560px] w-full object-cover"
-                      data-testid="img-family-hero"
-                    />
-                  ) : (
-                    <div className="flex aspect-[4/5] w-full flex-col items-center justify-center gap-5 bg-gradient-to-br from-secondary/60 to-card px-8 text-center">
-                      <LogoIcon className="h-20 w-20" />
-                      <p className="max-w-xs font-serif text-lg italic text-muted-foreground">
-                        Every object holds a memory. Let's keep them all in good hands.
-                      </p>
-                    </div>
-                  )}
+                  <div className="flex aspect-[4/5] w-full flex-col items-center justify-center gap-5 bg-gradient-to-br from-secondary/60 to-card px-8 text-center">
+                    <LogoIcon className="h-20 w-20" />
+                    <p className="max-w-xs font-serif text-lg italic text-muted-foreground">
+                      Every object holds a memory. Let's keep them all in good hands.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* ---------------------------------------------------------------- */}
-        {/* How it works                                                     */}
-        {/* ---------------------------------------------------------------- */}
         <section className="border-t border-border bg-card/40">
           <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20 lg:py-24">
             <div className="mx-auto max-w-2xl text-center">
@@ -238,9 +195,7 @@ export default function Home() {
                       {step.title}
                     </h3>
                     <p className="mt-2 text-base leading-relaxed text-muted-foreground">
-                      {i === 0 && contactName !== "the admin"
-                        ? `${contactName} photographs each belonging — adding a note or a short spoken memory whenever a piece has a story worth keeping.`
-                        : step.body}
+                      {step.body}
                     </p>
                   </li>
                 );
@@ -249,10 +204,50 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ---------------------------------------------------------------- */}
-        {/* Trust / empathy                                                  */}
-        {/* ---------------------------------------------------------------- */}
-        <section className="border-t border-border">
+        <section className="border-t border-border" data-testid="section-pricing">
+          <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20 lg:py-24">
+            <div className="mx-auto max-w-2xl text-center">
+              <p className="text-sm font-semibold uppercase tracking-[0.14em] text-primary">
+                Simple pricing
+              </p>
+              <h2 className="mt-3 font-serif text-3xl font-bold tracking-tight sm:text-4xl">
+                One family. One estate. Ninety-nine dollars, once.
+              </h2>
+              <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
+                Set up the catalog and invite everyone when you're ready. You only pay when it's time to run the live draft and take the results with you.
+              </p>
+            </div>
+
+            <div className="mx-auto mt-12 max-w-xl overflow-hidden rounded-2xl border border-card-border bg-card p-8 text-center shadow-md sm:p-10">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <Gift className="h-6 w-6" />
+              </div>
+              <p className="mt-5 font-serif text-5xl font-bold tracking-tight" data-testid="text-price">
+                $99
+              </p>
+              <p className="mt-2 text-base font-medium text-foreground">one-time, per estate</p>
+              <ul className="mx-auto mt-6 max-w-sm space-y-3 text-left text-base leading-relaxed text-muted-foreground">
+                <li>Photograph items and add spoken memories — free</li>
+                <li>Invite the family with private links — free</li>
+                <li>Pay when you run the live draft and export who kept what</li>
+              </ul>
+              <div className="mt-8">
+                <Link href="/account">
+                  <Button
+                    size="lg"
+                    className="min-h-12 gap-2 px-8 text-base shadow-md"
+                    data-testid="button-pricing-cta"
+                  >
+                    Start for free
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="border-t border-border bg-card/40">
           <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20 lg:py-24">
             <div className="mx-auto max-w-2xl text-center">
               <h2 className="font-serif text-3xl font-bold tracking-tight sm:text-4xl">
@@ -283,13 +278,12 @@ export default function Home() {
               })}
             </div>
 
-            {/* Closing CTA */}
             <div className="mx-auto mt-14 max-w-3xl overflow-hidden rounded-2xl border border-card-border bg-gradient-to-br from-primary/[0.08] to-accent/[0.06] p-8 text-center shadow-md sm:p-12">
               <h3 className="font-serif text-2xl font-bold tracking-tight sm:text-3xl">
                 Keep the memories, not the conflict.
               </h3>
               <p className="mx-auto mt-3 max-w-xl text-lg leading-relaxed text-muted-foreground">
-                Start when you're ready. You can add just one item today and invite the family whenever it feels right.
+                Start when you're ready. Add a first item today, invite the family whenever it feels right, and pay only when you run the draft.
               </p>
               <div className="mt-7 flex justify-center">
                 <Link href="/account">
@@ -308,17 +302,7 @@ export default function Home() {
         </section>
       </main>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Footer                                                             */}
-      {/* ------------------------------------------------------------------ */}
-      <footer className="border-t border-border bg-card/40">
-        <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-5 py-10 text-center sm:px-8">
-          <Logo iconClassName="h-7 w-7" className="[&_span]:text-lg" />
-          <p className="max-w-md text-base text-muted-foreground">
-            Made with care for families during difficult times.
-          </p>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, getQueryFn } from "@/lib/queryClient";
 import { storeMedia, isNewMediaRef } from "@/lib/uploads";
+import { getEstateId } from "@/lib/tenant";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Logo } from "@/components/logo";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Camera, Users, Trash2, ArrowLeft, ExternalLink, Image as ImageIcon, Loader2, Upload, Pencil, Mic, Volume2, X, Lock, Settings, Share, Shield, KeyRound, UserCog, Home, ImagePlus, User, CheckCircle2, Circle, Link2, RefreshCcw, Send, MailCheck } from "lucide-react";
+import { Plus, Camera, Users, Trash2, ArrowLeft, ExternalLink, Image as ImageIcon, Loader2, Upload, Pencil, Mic, Volume2, X, Lock, Settings, Share, Shield, KeyRound, UserCog, Home, ImagePlus, User, CheckCircle2, Circle, Link2, RefreshCcw, Send, MailCheck, CreditCard } from "lucide-react";
 import { getInitials } from "@/lib/utils-initials";
 import { HelpTooltip } from "@/components/help-tooltip";
 import { AdminPinGate } from "@/components/admin-pin-gate";
@@ -145,6 +146,78 @@ function AdminDashboard({ verifiedPin }: { verifiedPin: string }) {
   );
 }
 
+function adminAuthHeaders(verifiedPin?: string): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (verifiedPin) headers["x-admin-pin"] = verifiedPin;
+  const estateId = getEstateId();
+  if (estateId) headers["x-estate-id"] = estateId;
+  return headers;
+}
+
+function BillingBanner() {
+  const { toast } = useToast();
+  const [checkingOut, setCheckingOut] = useState(false);
+  const { data: billing } = useQuery<{ status: string; active: boolean; billingEnabled: boolean }>({
+    queryKey: ["/api/billing/status"],
+  });
+
+  if (!billing?.billingEnabled || billing.active) return null;
+
+  const startCheckout = async () => {
+    setCheckingOut(true);
+    try {
+      const res = await apiRequest("POST", "/api/billing/checkout");
+      const data = await res.json();
+      if (data?.alreadyActive) {
+        queryClient.invalidateQueries({ queryKey: ["/api/billing/status"] });
+        toast({ title: "This estate is already activated" });
+        return;
+      }
+      if (data?.url) {
+        window.location.href = data.url;
+        return;
+      }
+      toast({ title: "Couldn't start checkout", variant: "destructive" });
+    } catch (e: any) {
+      toast({
+        title: "Couldn't start checkout",
+        description: String(e?.message || "").replace(/^\d+:\s*/, ""),
+        variant: "destructive",
+      });
+    } finally {
+      setCheckingOut(false);
+    }
+  };
+
+  return (
+    <Card className="mb-8 rounded-2xl border-primary/30 bg-primary/[0.06] shadow-sm" data-testid="banner-billing">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-3 font-serif text-lg font-semibold">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+            <CreditCard className="h-5 w-5" />
+          </span>
+          Activate this estate — $99 once
+        </CardTitle>
+        <CardDescription className="text-base">
+          You can keep adding items and inviting family for free. Activation unlocks the live draft and exports.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Button
+          size="lg"
+          className="min-h-12 gap-2 px-8 text-base shadow-md"
+          onClick={startCheckout}
+          disabled={checkingOut}
+          data-testid="button-checkout"
+        >
+          {checkingOut && <Loader2 className="w-4 h-4 animate-spin" />}
+          Continue to checkout
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 function FamilySettings({ verifiedPin }: { verifiedPin: string }) {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
@@ -156,7 +229,12 @@ function FamilySettings({ verifiedPin }: { verifiedPin: string }) {
   const heroPhotoRef = useRef<HTMLInputElement>(null);
 
   const { data: adminStatus } = useQuery<{ hasAdminPin: boolean; adminName: string | null; familyName: string | null; contactName: string | null; hasHeroPhoto: boolean }>({
-    queryKey: ["/api/admin/status"],
+    queryKey: ["/api/admin/status", verifiedPin],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/status", { credentials: "include", headers: adminAuthHeaders(verifiedPin) });
+      if (!res.ok) throw new Error("Failed to load settings");
+      return res.json();
+    },
   });
 
   useEffect(() => {
@@ -272,7 +350,14 @@ function AdminSettings({ verifiedPin }: { verifiedPin: string }) {
   const [newNameVal, setNewNameVal] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const { data: adminStatus } = useQuery<{ hasAdminPin: boolean; adminName: string | null }>({ queryKey: ["/api/admin/status"] });
+  const { data: adminStatus } = useQuery<{ hasAdminPin: boolean; adminName: string | null }>({
+    queryKey: ["/api/admin/status", verifiedPin],
+    queryFn: async () => {
+      const res = await fetch("/api/admin/status", { credentials: "include", headers: adminAuthHeaders(verifiedPin) });
+      if (!res.ok) throw new Error("Failed to load settings");
+      return res.json();
+    },
+  });
 
   const handleChangePin = async () => {
     if (newPinVal.length !== 4 || newPinVal !== confirmPinVal) return;
@@ -381,14 +466,22 @@ export default function Admin() {
   const editAudioInputRef = useRef<HTMLInputElement>(null);
 
   const adminPin = sessionStorage.getItem("admin-pin") || "";
+  const { data: authMe } = useQuery<{ organizer: { id: string } } | null>({
+    queryKey: ["/api/auth/me"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+  });
+  const isOrganizer = !!authMe?.organizer;
   const { data: siblings = [], isLoading: siblingsLoading } = useQuery<SiblingResponse[]>({
-    queryKey: ["/api/admin/siblings", adminPin],
+    queryKey: ["/api/admin/siblings", adminPin, isOrganizer],
     queryFn: async () => {
-      const res = await fetch("/api/admin/siblings", { headers: { "x-admin-pin": adminPin } });
+      const res = await fetch("/api/admin/siblings", {
+        credentials: "include",
+        headers: adminAuthHeaders(adminPin),
+      });
       if (!res.ok) throw new Error("Failed to fetch siblings");
       return res.json();
     },
-    enabled: !!adminPin,
+    enabled: !!adminPin || isOrganizer,
   });
   const { data: items = [], isLoading: itemsLoading } = useQuery<ItemResponse[]>({ queryKey: ["/api/items"] });
 
@@ -733,6 +826,7 @@ export default function Admin() {
           </div>
 
           <TabsContent value="dashboard" className="mt-0 outline-none">
+            <BillingBanner />
             <AdminDashboard verifiedPin={verifiedPin} />
           </TabsContent>
 
