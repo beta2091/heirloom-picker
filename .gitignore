@@ -6,7 +6,9 @@ node_modules
 .vercel
 .env*.local
 
-# Build outputs copied to root for Vercel static serving
+# Build outputs copied to root for Vercel static serving.
+# Keep these gitignored, but do not add them to .vercelignore — Vercel
+# rewrites resolve /guides/<slug>/index.html from the root copy.
 /index.html
 /assets/
 /marketing/

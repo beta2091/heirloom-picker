@@ -1,0 +1,10 @@
+# Replaces .gitignore as Vercel's ignore file. Do not list /guides/,
+# /how-it-works/, or other prerendered HTML folders — those copies must
+# ship so crawlers see unique title/canonical tags instead of the SPA shell.
+node_modules
+.DS_Store
+*.tar.gz
+.env
+.env.local
+.env*.local
+.vercel
