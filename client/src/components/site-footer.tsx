@@ -38,6 +38,32 @@ export function SiteFooter({
             Not a will
           </Link>
         </nav>
+        <nav
+          className="flex max-w-2xl flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-muted-foreground"
+          aria-label="Guides"
+        >
+          <Link
+            href="/guides/divide-parents-belongings-fairly"
+            className="hover:text-foreground"
+            data-testid="link-guide-divide"
+          >
+            Divide belongings fairly
+          </Link>
+          <Link
+            href="/guides/siblings-fighting-over-things"
+            className="hover:text-foreground"
+            data-testid="link-guide-siblings"
+          >
+            When siblings are fighting
+          </Link>
+          <Link
+            href="/guides/executor-personal-property"
+            className="hover:text-foreground"
+            data-testid="link-guide-executor"
+          >
+            For executors
+          </Link>
+        </nav>
         <p className="max-w-lg text-xs leading-relaxed text-muted-foreground/80">
           Evenkeep is a family coordination tool. It is not a will, not legal advice, and not a substitute for an attorney.
         </p>

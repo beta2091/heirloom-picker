@@ -21,6 +21,9 @@ import HowItWorksPage from "@/pages/how-it-works";
 import ForFamiliesPage from "@/pages/for-families";
 import ForProfessionalsPage from "@/pages/for-professionals";
 import DemoPage from "@/pages/demo";
+import DivideParentsBelongingsGuide from "@/pages/guides/divide-parents-belongings";
+import SiblingsFightingGuide from "@/pages/guides/siblings-fighting";
+import ExecutorPersonalPropertyGuide from "@/pages/guides/executor-personal-property";
 
 function Router() {
   return (
@@ -30,6 +33,9 @@ function Router() {
       <Route path="/for-families" component={ForFamiliesPage} />
       <Route path="/for-professionals" component={ForProfessionalsPage} />
       <Route path="/demo" component={DemoPage} />
+      <Route path="/guides/divide-parents-belongings-fairly" component={DivideParentsBelongingsGuide} />
+      <Route path="/guides/siblings-fighting-over-things" component={SiblingsFightingGuide} />
+      <Route path="/guides/executor-personal-property" component={ExecutorPersonalPropertyGuide} />
       <Route path="/account" component={Account} />
       <Route path="/login" component={Account} />
       <Route path="/signup" component={Account} />
