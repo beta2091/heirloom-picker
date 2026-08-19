@@ -90,12 +90,62 @@ async function assertPrerenderedSeo(rootDir: string) {
   }
 }
 
+/** Root paths the static copy must never replace (Vercel serverless entry, source). */
+const ROOT_COPY_BLOCKLIST = new Set([
+  "api",
+  "client",
+  "server",
+  "script",
+  "shared",
+  "public",
+  "dist",
+  "node_modules",
+  ".git",
+  ".vercel",
+]);
+
 /** Copy every dist/public file to the repo root so Vercel rewrites can find them. */
 async function copyPublicOutputToRoot() {
   const entries = await readdir("dist/public", { withFileTypes: true });
   for (const entry of entries) {
+    if (ROOT_COPY_BLOCKLIST.has(entry.name)) {
+      throw new Error(
+        `Refusing to copy dist/public/${entry.name} over the project ${entry.name}/ path`,
+      );
+    }
     const from = path.join("dist/public", entry.name);
     await cp(from, entry.name, { recursive: true, force: true });
+  }
+}
+
+async function assertServerlessEntryIntact() {
+  const apiEntry = await readFile("api/index.js", "utf-8");
+  if (!apiEntry.includes("../dist/index.cjs")) {
+    throw new Error(
+      "api/index.js is missing the Express bundle require; the static copy overwrote the serverless entry",
+    );
+  }
+}
+
+/**
+ * cleanUrls:true strips extensions from Vercel Functions. Combined with
+ * destination "/api/index.js" the platform returns x-vercel-error: NOT_FOUND
+ * for every /api route (production 2026-08-19). Guide HTML uses explicit
+ * /guides/:slug → /guides/:slug/index.html rewrites instead.
+ */
+async function assertVercelApiRewrite() {
+  const vercel = JSON.parse(await readFile("vercel.json", "utf-8"));
+  if (vercel.cleanUrls) {
+    throw new Error(
+      "vercel.json cleanUrls:true 404s /api/index.js; keep it off and use explicit HTML rewrites",
+    );
+  }
+  const apiRewrite = (vercel.rewrites || []).find(
+    (rule: { source?: string; destination?: string }) =>
+      rule.source?.startsWith("/api"),
+  );
+  if (!apiRewrite || apiRewrite.destination !== "/api/index.js") {
+    throw new Error("vercel.json must rewrite /api/* to /api/index.js");
   }
 }
 
@@ -140,6 +190,8 @@ async function buildAll() {
   // routes from being omitted.
   console.log("copying static assets for Vercel...");
   await copyPublicOutputToRoot();
+  await assertServerlessEntryIntact();
+  await assertVercelApiRewrite();
   await assertPrerenderedSeo("dist/public");
   await assertPrerenderedSeo(".");
 
