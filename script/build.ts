@@ -140,8 +140,9 @@ async function assertVercelApiRewrite() {
       "vercel.json cleanUrls:true 404s /api/index.js; keep it off and use explicit HTML rewrites",
     );
   }
-  const apiRewrite = (vercel.rewrites || []).find((rule: { source?: string }) =>
-    rule.source?.startsWith("/api"),
+  const apiRewrite = (vercel.rewrites || []).find(
+    (rule: { source?: string; destination?: string }) =>
+      rule.source?.startsWith("/api"),
   );
   if (!apiRewrite || apiRewrite.destination !== "/api/index.js") {
     throw new Error("vercel.json must rewrite /api/* to /api/index.js");
