@@ -47,10 +47,10 @@ export default function ForFamiliesPage() {
                 </span>
                 <h1 className="mt-6 font-serif text-4xl font-bold leading-[1.12] tracking-tight sm:text-5xl">
                   Divide a parent's belongings fairly,{" "}
-                  <span className="text-primary">without a fight.</span>
+                  <span className="text-primary">without anyone having to judge.</span>
                 </h1>
                 <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground lg:mx-0">
-                  You are already tired. The china, the chair, the box of letters — each one can open a conversation that the family is not ready to have in the hallway. Evenkeep gives everyone a private place to say what they hope to keep, then a fair way to take turns.
+                  You are already tired. The china, the chair, the box of letters — each one can open a conversation the family is not ready to have in the hallway. What those things are worth in dollars is not what they are worth to a sister or a brother. Evenkeep gives everyone a private place to say what they hope to keep, then a fair way to take turns. No one has to play judge.
                 </p>
                 <div className="mt-8 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-center lg:justify-start">
                   <Link href="/account">
@@ -118,7 +118,7 @@ export default function ForFamiliesPage() {
                 What this changes
               </p>
               <h2 className="mt-3 font-serif text-3xl font-bold tracking-tight sm:text-4xl">
-                Soften the week. Keep the family.
+                The process does not have to be the fight.
               </h2>
             </div>
             <div className="mt-12 grid gap-6 sm:grid-cols-3">

@@ -44,7 +44,7 @@ function organizationJsonLd() {
     name: "Evenkeep",
     url: `${SITE_ORIGIN}/`,
     description:
-      "Evenkeep helps families photograph belongings, privately rank what matters, and take turns in a fair draft. $99 one-time per estate.",
+      "Evenkeep is a private, fair process for families dividing belongings — so nobody has to be the judge. $99 one-time per estate.",
     logo: `${SITE_ORIGIN}/favicon.png`,
   };
 }
@@ -56,7 +56,7 @@ function websiteJsonLd() {
     name: "Evenkeep",
     url: `${SITE_ORIGIN}/`,
     description:
-      "A private, fair draft for families dividing a loved one's belongings.",
+      "A private, fair process for families dividing a loved one's belongings. Nobody has to be the judge.",
     publisher: { "@id": `${SITE_ORIGIN}/#organization` },
   };
 }
@@ -94,31 +94,31 @@ const homeJsonLd = {
 export const SEO = {
   home: {
     path: "/",
-    title: "Evenkeep — The fair, kind way for families to divide a loved one's belongings",
+    title: "Evenkeep — The hard part is not the stuff",
     description:
-      "Evenkeep helps families fairly and peacefully divide a loved one's belongings — photograph each item, let everyone privately rank what matters, then take turns in a fair draft. Keep the memories, not the conflict. $99 one-time per estate.",
-    ogTitle: "Evenkeep — Divide what matters, with fairness and care",
+      "Dividing belongings can split a family. What something is worth in dollars is not what it is worth to the person. Evenkeep is a private, fair process: rank what you love, then take turns one item at a time. Nobody has to be the judge. $99 one-time per estate.",
+    ogTitle: "Evenkeep — The hard part is not the stuff",
     ogDescription:
-      "A calm, private place for your family to share a loved one's belongings. Set up and invite free; $99 once to run the live draft and export.",
+      "What it is worth in dollars is not what it is worth to the person. Private lists, a fair order, one item at a time. Free to set up; $99 once to run the draft.",
     jsonLd: homeJsonLd,
   },
   howItWorks: {
     path: "/how-it-works",
     title: "How Evenkeep works — catalog, private ranking, and a fair draft",
     description:
-      "A calm walkthrough of how families photograph belongings, privately say what matters, draw a fair turn order, and take turns until every keepsake has a home. Free to set up; $99 once to run the draft.",
+      "A calm walkthrough of how families photograph belongings, privately rank what they love, draw a fair turn order, and take turns one item at a time — so no one has to play judge. Free to set up; $99 once to run the draft.",
     ogTitle: "How Evenkeep works",
     ogDescription:
-      "Catalog the belongings. Everyone ranks in private. A fair order is drawn. Then you take turns — no one has to be the judge.",
+      "Private lists. A fair order. One item at a time. No one has to play judge. The process does not have to be the fight.",
   },
   forFamilies: {
     path: "/for-families",
-    title: "Divide a parent's belongings fairly, without a fight | Evenkeep",
+    title: "Divide a parent's belongings fairly, without anyone playing judge | Evenkeep",
     description:
-      "A private, unhurried way for siblings and executors to divide a parent's belongings fairly — so a hard week does not have to become a family fight. Free to set up; $99 once to run the draft.",
-    ogTitle: "Divide a parent's belongings fairly, without a fight",
+      "A private, unhurried way for siblings and executors to divide a parent's belongings fairly — so no one has to play judge. The process does not have to be the fight. Free to set up; $99 once to run the draft.",
+    ogTitle: "Divide a parent's belongings fairly, without anyone playing judge",
     ogDescription:
-      "For the sibling or executor holding the house this week. Photograph what is left, let everyone speak in private, and let a fair draft do the deciding.",
+      "For the sibling or executor holding the house this week. Photograph what is left, let everyone rank what they love in private, and let a fair draft do the deciding.",
   },
   forProfessionals: {
     path: "/for-professionals",

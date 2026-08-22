@@ -4,6 +4,7 @@ import { MarketingHeader } from "@/components/marketing-header";
 import { MarketingPhoto } from "@/components/marketing-photo";
 import { SiteFooter } from "@/components/site-footer";
 import { SeoHead } from "@/components/seo-head";
+import { LegalNote } from "@/components/legal-note";
 import { SEO } from "@shared/seo";
 import {
   Camera,
@@ -12,7 +13,7 @@ import {
   HandHeart,
   ArrowRight,
   ShieldCheck,
-  Users,
+  CircleDollarSign,
   Heart,
   Gift,
 } from "lucide-react";
@@ -26,9 +27,9 @@ const steps = [
   },
   {
     icon: Star,
-    title: "Everyone quietly says what matters",
+    title: "Everyone ranks what they love",
     body:
-      "From their own phone, each person rates and ranks what they'd love to keep. It's completely private — no one sees anyone else's list.",
+      "From their own phone, each person ranks what they would love to keep. It is completely private — no one sees anyone else's list.",
   },
   {
     icon: Scale,
@@ -40,7 +41,7 @@ const steps = [
     icon: HandHeart,
     title: "You take turns, one at a time",
     body:
-      "In that fair order, everyone chooses a single item on their turn until every piece has found the person who'll cherish it.",
+      "In that fair order, everyone chooses a single item on their turn until every piece has found the person who will cherish it.",
   },
 ];
 
@@ -48,17 +49,17 @@ const assurances = [
   {
     icon: ShieldCheck,
     title: "Private by design",
-    body: "Each person's ratings stay theirs alone. Nothing is shared until the draft brings everyone together.",
+    body: "Each person ranks what they love. A recipe box. A watch. Those wishes stay theirs until the draft.",
   },
   {
     icon: Scale,
-    title: "Fair for everyone",
-    body: "An impartial turn order means the outcome doesn't depend on who spoke loudest or lives closest.",
+    title: "Nobody has to be the judge",
+    body: "An impartial turn order. One item at a time. The outcome does not depend on who spoke loudest or lives closest.",
   },
   {
-    icon: Users,
-    title: "Made for every relative",
-    body: "Large, gentle screens that work from a texted link — whether you're twelve or ninety, on a phone at the kitchen table.",
+    icon: CircleDollarSign,
+    title: "Money is the wrong scoreboard",
+    body: "What it is worth in dollars is not what it is worth to the person. The draft does not score by price.",
   },
 ];
 
@@ -79,14 +80,14 @@ export default function Home() {
               <div className="text-center lg:text-left">
                 <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-sm font-medium text-muted-foreground shadow-xs">
                   <Heart className="h-4 w-4 text-primary" />
-                  A kinder way to divide what's left behind
+                  Nobody has to be the judge
                 </span>
                 <h1 className="mt-6 font-serif text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl lg:text-6xl">
-                  Divide what matters,
-                  <span className="block text-primary">with fairness and care.</span>
+                  The hard part is not the stuff.
+                  <span className="block text-primary">It is coming apart over it.</span>
                 </h1>
                 <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground lg:mx-0">
-                  A calm, private place for your family to share a loved one's belongings — so every keepsake lands with someone who'll treasure it, and the family stays whole.
+                  Dividing belongings can split a family. What something is worth in dollars is not what it is worth to the person. One sibling may want the recipe box. Another wants the watch. Evenkeep keeps lists private, draws a fair order, and moves one item at a time — so no one has to play judge.
                 </p>
                 <div className="mt-8 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-center lg:justify-start">
                   <Link href="/account">
@@ -135,7 +136,7 @@ export default function Home() {
                   />
                   <figcaption className="border-t border-card-border px-6 py-4 text-center">
                     <p className="font-serif text-base italic leading-relaxed text-muted-foreground sm:text-lg">
-                      Every object holds a memory. Let's keep them all in good hands.
+                      A recipe box. A watch. What they mean is not what they cost.
                     </p>
                   </figcaption>
                 </figure>
@@ -157,7 +158,7 @@ export default function Home() {
                 Four unhurried steps
               </h2>
               <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
-                No pressure and no rush. Everyone moves at their own pace, and the fair part is handled for you.{" "}
+                Private lists. A fair order. One item at a time. No one has to play judge.{" "}
                 <Link href="/how-it-works" className="text-foreground underline underline-offset-4">
                   Read the full walkthrough
                 </Link>
@@ -370,7 +371,7 @@ export default function Home() {
                 Built to soften a hard moment
               </h2>
               <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
-                Dividing belongings can strain even close families. Evenkeep takes the pressure off the people and lets fairness do the deciding.
+                The hard part is not the stuff. It is families coming apart over it. Evenkeep is an impersonal, fair process so nobody has to be the judge. We cannot promise a family will stay close. The process does not have to be the fight.
               </p>
             </div>
 
@@ -396,10 +397,10 @@ export default function Home() {
 
             <div className="mx-auto mt-14 max-w-3xl overflow-hidden rounded-2xl border border-card-border bg-gradient-to-br from-primary/[0.08] to-accent/[0.06] p-8 text-center shadow-md sm:p-12">
               <h3 className="font-serif text-2xl font-bold tracking-tight sm:text-3xl">
-                Keep the memories, not the conflict.
+                The process does not have to be the fight.
               </h3>
               <p className="mx-auto mt-3 max-w-xl text-lg leading-relaxed text-muted-foreground">
-                Start when you're ready. Add a first item today, invite the family whenever it feels right, and pay only when you run the draft.
+                Start when you are ready. Add a first item today, invite the family whenever it feels right, and pay only when you run the draft.
               </p>
               <div className="mt-7 flex justify-center">
                 <Link href="/account">
@@ -413,6 +414,7 @@ export default function Home() {
                   </Button>
                 </Link>
               </div>
+              <LegalNote className="mx-auto mt-6 max-w-lg text-sm leading-relaxed text-muted-foreground" />
             </div>
           </div>
         </section>
