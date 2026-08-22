@@ -41,7 +41,7 @@ const stages = [
     title: "Everyone ranks in private",
     kicker: "No one sees anyone else's list",
     body: [
-      "Each person opens their own link on a phone or a laptop. They look through the catalog and quietly mark what they would love to keep — a rating, a personal order, nothing performed for the room.",
+      "Each person opens their own link on a phone or a laptop. They rank what they love — a recipe box, a watch, a quilt — without performing it for the room.",
       "Siblings do not compare lists. Parents do not have to mediate. The person who lives farthest away has the same voice as the person standing in the kitchen.",
     ],
     photo: {
@@ -110,8 +110,9 @@ export default function HowItWorksPage() {
               Four unhurried steps, from the kitchen table to a finished list.
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-muted-foreground">
-              Catalog the belongings. Let everyone say what matters in private.
-              Draw a fair order. Take turns until every piece has a home.
+              Everyone ranks what they love in private. Then a fair order, one
+              item at a time — so no one has to play judge. The process does not
+              have to be the fight.
             </p>
             <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
               <Link href="/account">
