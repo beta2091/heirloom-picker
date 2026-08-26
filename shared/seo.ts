@@ -1,4 +1,5 @@
 /** Public site origin — used for canonical URLs, OG tags, sitemap, and robots. */
+import { crawlableBodyForPath } from "./guide-articles";
 import { GUIDE_FAQS, type GuideFaq } from "./guides";
 
 export const SITE_ORIGIN = "https://evenkeep.app";
@@ -294,7 +295,17 @@ function applyJsonLd(html: string, data: unknown | undefined): string {
   return html.replace("</head>", `    ${tag}\n  </head>`);
 }
 
-/** Rewrite the SPA index.html so crawlers see per-route title, description, and OG tags. */
+const EMPTY_ROOT = '<div id="root"></div>';
+
+/** Put crawlable HTML inside the SPA mount so the first response has real body text. */
+export function injectCrawlableBody(html: string, inner: string): string {
+  if (!html.includes(EMPTY_ROOT)) {
+    throw new Error('SPA shell is missing <div id="root"></div>; cannot inject crawlable HTML');
+  }
+  return html.replace(EMPTY_ROOT, `<div id="root">${inner}</div>`);
+}
+
+/** Rewrite the SPA index.html so crawlers see per-route title, description, OG tags, and body. */
 export function applySeoToHtml(html: string, page: SeoPage): string {
   const url = pageUrl(page.path);
   const image = pageImage(page);
@@ -325,6 +336,14 @@ export function applySeoToHtml(html: string, page: SeoPage): string {
   out = replaceMeta(out, "name", "twitter:description", ogDescription);
   out = replaceMeta(out, "name", "twitter:image", image);
   out = applyJsonLd(out, page.jsonLd);
+
+  const crawlable = crawlableBodyForPath(page.path);
+  if (page.path.startsWith("/guides/") && !crawlable) {
+    throw new Error(`No crawlable article HTML for ${page.path}`);
+  }
+  if (crawlable) {
+    out = injectCrawlableBody(out, crawlable);
+  }
   return out;
 }
 
