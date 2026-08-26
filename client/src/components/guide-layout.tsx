@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { MarketingHeader } from "@/components/marketing-header";
@@ -6,15 +6,50 @@ import { MarketingPhoto } from "@/components/marketing-photo";
 import { SiteFooter } from "@/components/site-footer";
 import { SeoHead } from "@/components/seo-head";
 import { LegalNote } from "@/components/legal-note";
+import type { GuideBlock, GuideRelated } from "@shared/guide-articles";
 import type { GuideFaq } from "@shared/guides";
 import type { SeoPage } from "@shared/seo";
 import { ArrowRight } from "lucide-react";
 
-export type GuideRelated = {
-  href: string;
-  label: string;
-  blurb: string;
-};
+export type { GuideRelated };
+
+export function GuideBlocks({ blocks }: { blocks: readonly GuideBlock[] }) {
+  return (
+    <>
+      {blocks.map((block, index) => {
+        const key = `${block.type}-${index}`;
+        if (block.type === "h2") return <h2 key={key}>{block.text}</h2>;
+        if (block.type === "h3") return <h3 key={key}>{block.text}</h3>;
+        if (block.type === "ul") {
+          return (
+            <ul key={key}>
+              {block.items.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          );
+        }
+        return (
+          <p key={key}>
+            {block.parts.map((part, partIndex) => {
+              if (typeof part === "string") {
+                return <Fragment key={partIndex}>{part}</Fragment>;
+              }
+              if ("href" in part) {
+                return (
+                  <Link key={partIndex} href={part.href}>
+                    {part.label}
+                  </Link>
+                );
+              }
+              return <em key={partIndex}>{part.em}</em>;
+            })}
+          </p>
+        );
+      })}
+    </>
+  );
+}
 
 type GuidePhoto = {
   src: string;
@@ -40,7 +75,7 @@ export function GuidePage({
   lede: string;
   photo: GuidePhoto;
   faqs: readonly GuideFaq[];
-  related: GuideRelated[];
+  related: readonly GuideRelated[];
   children: ReactNode;
 }) {
   return (

@@ -90,6 +90,42 @@ async function assertPrerenderedSeo(rootDir: string) {
   }
 }
 
+/**
+ * Google indexes first HTML. The SPA shell is an empty #root — guides and the
+ * homepage must ship real body text and crawlable <a href> links in that file.
+ */
+async function assertCrawlableFirstHtml(rootDir: string) {
+  const homeFile = path.join(rootDir, "index.html");
+  const home = await readFile(homeFile, "utf-8");
+  if (!home.includes(`<title>${SEO.home.title}</title>`)) {
+    throw new Error("Do not retitle / — homepage <title> changed");
+  }
+  if (!home.includes('href="/guides/divide-parents-belongings-fairly"')) {
+    throw new Error("Homepage first HTML is missing a crawlable link to the divide-parents guide");
+  }
+
+  const familiesFile = path.join(rootDir, "for-families/index.html");
+  const families = await readFile(familiesFile, "utf-8");
+  if (!families.includes(`<title>${SEO.forFamilies.title}</title>`)) {
+    throw new Error("Do not retitle /for-families — title changed");
+  }
+
+  const guideFile = path.join(
+    rootDir,
+    "guides/divide-parents-belongings-fairly/index.html",
+  );
+  const guide = await readFile(guideFile, "utf-8");
+  if (!guide.includes("<article>") || !guide.includes("<h1>")) {
+    throw new Error("Divide-parents first HTML is missing <article> or <h1>");
+  }
+  if (!guide.includes("Divide a parent's belongings fairly, without a fight")) {
+    throw new Error("Divide-parents first HTML is missing the article headline");
+  }
+  if (!guide.includes("Start with a catalog, not a conversation in the hallway")) {
+    throw new Error("Divide-parents first HTML is missing article body");
+  }
+}
+
 /** Root paths the static copy must never replace (Vercel serverless entry, source). */
 const ROOT_COPY_BLOCKLIST = new Set([
   "api",
@@ -194,6 +230,8 @@ async function buildAll() {
   await assertVercelApiRewrite();
   await assertPrerenderedSeo("dist/public");
   await assertPrerenderedSeo(".");
+  await assertCrawlableFirstHtml("dist/public");
+  await assertCrawlableFirstHtml(".");
 
   const sitemap = await readFile("dist/public/sitemap.xml", "utf-8");
   for (const page of PRERENDER_PAGES) {
