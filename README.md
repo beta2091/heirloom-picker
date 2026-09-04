@@ -60,6 +60,13 @@ npm run build
 | `RESEND_API_KEY` | Enables emailing participants their private links (Resend). Omit to hide invite UI. |
 | `RESEND_FROM` | Optional — from address, e.g. `Evenkeep <invites@yourdomain.com>` (needs a verified domain in Resend) |
 
+## WebMCP (Chrome origin trial)
+
+Optional, read-first page tools for agents that support
+`document.modelContext`. The app is unchanged when the API is absent. See
+[`docs/WEBMCP.md`](./docs/WEBMCP.md) for the tool list, safety boundaries, and
+how to test on a preview.
+
 ## Multi-tenancy
 
 The app is multi-tenant: each **estate** is an isolated family draft, owned by an

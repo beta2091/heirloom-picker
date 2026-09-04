@@ -24,6 +24,7 @@ import DemoPage from "@/pages/demo";
 import DivideParentsBelongingsGuide from "@/pages/guides/divide-parents-belongings";
 import SiblingsFightingGuide from "@/pages/guides/siblings-fighting";
 import ExecutorPersonalPropertyGuide from "@/pages/guides/executor-personal-property";
+import { WebMcpBridge } from "@/components/webmcp-bridge";
 
 function Router() {
   return (
@@ -62,6 +63,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
+        <WebMcpBridge />
         <Router />
       </TooltipProvider>
     </QueryClientProvider>
