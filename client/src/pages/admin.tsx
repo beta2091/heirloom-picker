@@ -18,6 +18,7 @@ import { Plus, Camera, Users, Trash2, ArrowLeft, ExternalLink, Image as ImageIco
 import { getInitials } from "@/lib/utils-initials";
 import { HelpTooltip } from "@/components/help-tooltip";
 import { AdminPinGate } from "@/components/admin-pin-gate";
+import { registerPrepareInviteHandler, type PrepareInviteDetail } from "@/lib/webmcp-prepare-invite";
 interface ItemResponse {
   id: string;
   name: string;
@@ -37,6 +38,23 @@ interface SiblingResponse {
   hasPin: boolean;
   email?: string | null;
   invitedAt?: string | null;
+}
+
+/** Only mounted behind the admin gate so WebMCP cannot claim the dialog opened while locked. */
+function PrepareInviteListener({
+  onPrepare,
+}: {
+  onPrepare: (detail: PrepareInviteDetail) => void;
+}) {
+  const onPrepareRef = useRef(onPrepare);
+  onPrepareRef.current = onPrepare;
+  useEffect(() => {
+    return registerPrepareInviteHandler((detail) => {
+      onPrepareRef.current(detail);
+      return true;
+    });
+  }, []);
+  return null;
 }
 
 const SIBLING_COLORS = [
@@ -434,6 +452,7 @@ function AdminSettings({ verifiedPin }: { verifiedPin: string }) {
 
 export default function Admin() {
   const { toast } = useToast();
+  const [adminTab, setAdminTab] = useState("dashboard");
   const [siblingDialogOpen, setSiblingDialogOpen] = useState(false);
   const [itemDialogOpen, setItemDialogOpen] = useState(false);
   const [newSiblingName, setNewSiblingName] = useState("");
@@ -800,6 +819,14 @@ export default function Admin() {
     <AdminPinGate title="Admin Access" description="Enter the admin PIN to manage the estate.">
     {(verifiedPin: string) => (
     <div className="min-h-screen bg-background text-foreground">
+      <PrepareInviteListener
+        onPrepare={(detail) => {
+          setAdminTab("family");
+          if (detail.name) setNewSiblingName(detail.name);
+          if (detail.email) setNewSiblingEmail(detail.email);
+          setSiblingDialogOpen(true);
+        }}
+      />
       <header className="sticky top-0 z-50 border-b border-border bg-background/85 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 py-4 sm:px-8">
           <div className="flex items-center gap-2">
@@ -815,7 +842,7 @@ export default function Admin() {
       </header>
 
       <main className="mx-auto max-w-6xl px-5 py-8 sm:px-8 sm:py-12">
-        <Tabs defaultValue="dashboard" className="space-y-8">
+        <Tabs value={adminTab} onValueChange={setAdminTab} className="space-y-8">
           <div className="mb-8 flex justify-center overflow-x-auto">
             <TabsList className="inline-flex h-auto max-w-full rounded-xl border border-card-border bg-card p-1 shadow-sm">
               <TabsTrigger value="dashboard" className="rounded-lg px-4 py-2 text-base data-[state=active]:bg-primary/10 data-[state=active]:text-primary">Dashboard</TabsTrigger>
