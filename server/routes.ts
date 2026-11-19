@@ -289,8 +289,9 @@ export async function registerRoutes(
       });
       const sessionData: any = await resp.json();
       if (!resp.ok) {
-        console.error("[stripe] checkout error", sessionData);
-        return res.status(502).json({ error: "Could not start checkout" });
+        const detail = sessionData?.error?.message || "Stripe rejected the checkout session";
+        console.error("[stripe] checkout error", detail);
+        return res.status(502).json({ error: "Could not start checkout", detail });
       }
       await updateEstate(estate.id, { stripeCheckoutId: sessionData.id });
       res.json({ url: sessionData.url });
