@@ -289,9 +289,9 @@ export async function registerRoutes(
       });
       const sessionData: any = await resp.json();
       if (!resp.ok) {
-        const detail = sessionData?.error?.message || "Stripe rejected the checkout session";
-        console.error("[stripe] checkout error", detail);
-        return res.status(502).json({ error: "Could not start checkout", detail });
+        // Log Stripe's message for the server logs only. It can echo part of a bad API key.
+        console.error("[stripe] checkout error", sessionData?.error?.message || sessionData);
+        return res.status(502).json({ error: "Could not start checkout" });
       }
       await updateEstate(estate.id, { stripeCheckoutId: sessionData.id });
       res.json({ url: sessionData.url });
