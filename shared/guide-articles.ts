@@ -53,7 +53,7 @@ export const GUIDE_ARTICLES = {
   divideParents: {
     path: DIVIDE_PARENTS_PATH,
     kicker: "A practical guide",
-    headline: "Divide a parent's belongings fairly, without a fight",
+    headline: "How to divide a parent's belongings fairly",
     lede: "The will, if there is one, may have covered the house and the accounts. It often says nothing about the quilt, the good spoons, or the box of letters on the dresser. This guide is for that leftover list — the personal things siblings are now trying to share.",
     photo: {
       src: "/marketing/hero-keepsakes",
@@ -174,7 +174,7 @@ export const GUIDE_ARTICLES = {
     related: [
       {
         href: DIVIDE_PARENTS_PATH,
-        label: "Divide a parent's belongings fairly, without a fight",
+        label: "How to divide a parent's belongings fairly",
         blurb: "The longer guide to catalogs, snake drafts, stickers, points, and selling.",
       },
       {
@@ -277,7 +277,7 @@ export const GUIDE_ARTICLES = {
     related: [
       {
         href: DIVIDE_PARENTS_PATH,
-        label: "Divide a parent's belongings fairly, without a fight",
+        label: "How to divide a parent's belongings fairly",
         blurb: "A sibling-facing guide to the same methods, written without the legal hat.",
       },
       {
@@ -456,8 +456,20 @@ export function renderGuideArticleHtml(article: GuideArticle): string {
 export function renderHomeCrawlableHtml(): string {
   return [
     "<main>",
-    "<h1>The hard part is not the stuff. It is coming apart over it.</h1>",
-    "<p>Dividing belongings can split a family. What something is worth in dollars is not what it is worth to the person. Evenkeep is a private, fair process: rank what you love, then take turns one item at a time. Nobody has to be the judge.</p>",
+    "<h1>A fair, simple way to divide a parent's belongings.</h1>",
+    "<p>Everyone privately ranks what matters to them, then you take turns choosing in a random order. For families settling an estate, or parents planning ahead.</p>",
+    "<p>No download. Everyone joins from a private link. $99 one-time when you're ready to choose.</p>",
+    "<h2>Who it's for</h2>",
+    "<ul>",
+    "<li>After a parent dies</li>",
+    "<li>When downsizing or moving a parent</li>",
+    "<li>Parents planning ahead, so the kids don't have to guess</li>",
+    "</ul>",
+    "<ol>",
+    "<li><strong>Photograph what's there.</strong> One person adds each item: a photo, plus a note or voice memory if it has a story.</li>",
+    "<li><strong>Everyone ranks in private.</strong> Each sibling gets their own link and marks what they love. No one sees anyone else's list.</li>",
+    "<li><strong>Take turns choosing.</strong> Evenkeep draws a fair order, and you pick one item at a time until everything has a home, with a list of who kept what.</li>",
+    "</ol>",
     '<nav aria-label="Guides for a hard week">',
     "<p>Practical pages, written for the search you actually make.</p>",
     `<a href="${DIVIDE_PARENTS_PATH}">How to divide a parent's belongings fairly</a>`,

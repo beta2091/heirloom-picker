@@ -60,7 +60,7 @@ const stages = [
     kicker: "Lottery, then turns",
     body: [
       "When the family is ready, Evenkeep draws an even, impartial turn order. No one has to volunteer to be the decider. No one is rewarded for speaking first or living closest.",
-      "Then you take turns, one item at a time, in that order. Each person chooses a single belonging on their turn until the catalog is finished. The live draft and the export are what the one-time $99 unlocks.",
+      "Then you take turns, one item at a time, in that order. Each person chooses a single belonging on their turn until the catalog is finished. Choosing and the export are what the $99 one-time unlocks.",
     ],
     photo: {
       src: "/marketing/table-catalog",
@@ -110,9 +110,8 @@ export default function HowItWorksPage() {
               Four unhurried steps, from the kitchen table to a finished list.
             </h1>
             <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-muted-foreground">
-              Everyone ranks what they love in private. Then a fair order, one
-              item at a time — so no one has to play judge. The process does not
-              have to be the fight.
+              Everyone privately ranks what matters to them. Then you take turns
+              choosing, one item at a time, in a random order.
             </p>
             <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
               <Link href="/account">
@@ -133,7 +132,7 @@ export default function HowItWorksPage() {
               </Link>
             </div>
             <p className="mt-5 text-sm text-muted-foreground">
-              Free to set up and invite. <span className="font-medium text-foreground">$99 once</span> when you run the live draft.
+              No download. Everyone joins from a private link. <span className="font-medium text-foreground">$99 one-time</span> when you&apos;re ready to choose.
             </p>
           </div>
         </section>
@@ -200,7 +199,7 @@ export default function HowItWorksPage() {
               Private by design. Simple on purpose.
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
-              Ratings stay with the person who made them until the draft. Elderly relatives get a large, gentle screen from a texted link — not a store app and not a login to remember.
+              Ratings stay with the person who made them until the draft. Elderly relatives get a large, gentle screen from a private link — not a store app and not a login to remember.
             </p>
             <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
               Families also ask about stickers, points-bidding, and selling the house contents. Those methods have a place. A private turn-based draft is the kinder option when the list is mostly keepsakes. The longer guides —{" "}

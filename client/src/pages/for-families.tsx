@@ -22,7 +22,7 @@ const helps = [
   {
     icon: Users,
     title: "Built for every relative",
-    body: "A texted link. Large type. No app store. The person who is ninety and the person who is twelve can both take a turn.",
+    body: "A private link. Large type. No app store. The person who is ninety and the person who is twelve can both take a turn.",
   },
 ];
 
@@ -89,7 +89,7 @@ export default function ForFamiliesPage() {
                     imgClassName="aspect-[16/11] w-full object-cover object-[center_42%] sm:aspect-[4/5] sm:max-h-[28rem] lg:max-h-none"
                   />
                   <figcaption className="border-t border-card-border px-6 py-4 text-center font-serif text-base italic leading-relaxed text-muted-foreground">
-                    The things on the table are not the fight. The silence around them is.
+                    The things on the table still need a careful turn.
                   </figcaption>
                 </div>
               </figure>
@@ -118,7 +118,7 @@ export default function ForFamiliesPage() {
                 What this changes
               </p>
               <h2 className="mt-3 font-serif text-3xl font-bold tracking-tight sm:text-4xl">
-                The process does not have to be the fight.
+                Private rankings, then a turn.
               </h2>
             </div>
             <div className="mt-12 grid gap-6 sm:grid-cols-3">
@@ -164,7 +164,7 @@ export default function ForFamiliesPage() {
               Start when you can. Pay when you draft.
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
-              Add a first item today. Invite the family whenever it feels right. The live draft and the export are $99, once, for that estate.
+              Add a first item today. Invite the family whenever it feels right. $99 one-time when you&apos;re ready to choose.
             </p>
             <div className="mt-8 flex justify-center">
               <Link href="/account">

@@ -93,7 +93,7 @@ export function MarketingHeader() {
                 </SheetClose>
                 <SheetClose asChild>
                   <Link href="/account" className="mt-2">
-                    <Button className="w-full text-base">Create your estate</Button>
+                    <Button className="w-full text-base">Start your family&apos;s list</Button>
                   </Link>
                 </SheetClose>
               </nav>
@@ -114,7 +114,7 @@ export function MarketingHeader() {
               className="hidden text-base shadow-sm sm:inline-flex"
               data-testid="link-create-estate"
             >
-              Create your estate
+              Start your family&apos;s list
             </Button>
           </Link>
         </div>

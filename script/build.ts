@@ -118,7 +118,7 @@ async function assertCrawlableFirstHtml(rootDir: string) {
   if (!guide.includes("<article>") || !guide.includes("<h1>")) {
     throw new Error("Divide-parents first HTML is missing <article> or <h1>");
   }
-  if (!guide.includes("Divide a parent's belongings fairly, without a fight")) {
+  if (!guide.includes("How to divide a parent's belongings fairly")) {
     throw new Error("Divide-parents first HTML is missing the article headline");
   }
   if (!guide.includes("Start with a catalog, not a conversation in the hallway")) {

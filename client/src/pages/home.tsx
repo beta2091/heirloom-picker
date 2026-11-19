@@ -18,30 +18,30 @@ import {
   Gift,
 } from "lucide-react";
 
+const audiences = [
+  "After a parent dies",
+  "When downsizing or moving a parent",
+  "Parents planning ahead, so the kids don't have to guess",
+];
+
 const steps = [
   {
     icon: Camera,
-    title: "Someone gathers the items",
+    title: "Photograph what's there",
     body:
-      "A family organizer photographs each belonging — adding a note or a short spoken memory whenever a piece has a story worth keeping.",
+      "One person adds each item: a photo, plus a note or voice memory if it has a story.",
   },
   {
     icon: Star,
-    title: "Everyone ranks what they love",
+    title: "Everyone ranks in private",
     body:
-      "From their own phone, each person ranks what they would love to keep. It is completely private — no one sees anyone else's list.",
-  },
-  {
-    icon: Scale,
-    title: "A fair order is drawn",
-    body:
-      "Evenkeep sets an even, impartial turn order, so no one is left out and no one has to be the one who decides.",
+      "Each sibling gets their own link and marks what they love. No one sees anyone else's list.",
   },
   {
     icon: HandHeart,
-    title: "You take turns, one at a time",
+    title: "Take turns choosing",
     body:
-      "In that fair order, everyone chooses a single item on their turn until every piece has found the person who will cherish it.",
+      "Evenkeep draws a fair order, and you pick one item at a time until everything has a home, with a list of who kept what.",
   },
 ];
 
@@ -75,32 +75,38 @@ export default function Home() {
             aria-hidden="true"
             className="pointer-events-none absolute inset-0 bg-gradient-to-b from-primary/[0.07] via-accent/[0.04] to-transparent"
           />
-          <div className="relative mx-auto max-w-6xl px-5 pb-16 pt-14 sm:px-8 sm:pb-20 sm:pt-20 lg:pb-28 lg:pt-24">
-            <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
+          <div className="relative mx-auto max-w-6xl px-5 pb-12 pt-10 sm:px-8 sm:pb-20 sm:pt-20 lg:pb-28 lg:pt-24">
+            <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
               <div className="text-center lg:text-left">
                 <span className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-sm font-medium text-muted-foreground shadow-xs">
                   <Heart className="h-4 w-4 text-primary" />
-                  Nobody has to be the judge
+                  For families settling an estate
                 </span>
-                <h1 className="mt-6 font-serif text-4xl font-bold leading-[1.1] tracking-tight sm:text-5xl lg:text-6xl">
-                  The hard part is not the stuff.
-                  <span className="block text-primary">It is coming apart over it.</span>
+                <h1 className="mt-5 font-serif text-[1.9rem] font-bold leading-[1.15] tracking-tight sm:text-5xl lg:text-[3.15rem] xl:text-6xl">
+                  A fair, simple way to divide a parent&apos;s belongings.
                 </h1>
-                <p className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground lg:mx-0">
-                  Dividing belongings can split a family. What something is worth in dollars is not what it is worth to the person. One sibling may want the recipe box. Another wants the watch. Evenkeep keeps lists private, draws a fair order, and moves one item at a time — so no one has to play judge.
+                <p className="mx-auto mt-4 max-w-xl text-lg leading-relaxed text-muted-foreground lg:mx-0">
+                  Everyone privately ranks what matters to them, then you take turns choosing in a random order. For families settling an estate, or parents planning ahead.
                 </p>
-                <div className="mt-8 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-center lg:justify-start">
-                  <Link href="/account">
+                <div className="mt-6 grid grid-cols-1 items-center gap-3 sm:grid-cols-[auto_auto] sm:justify-start">
+                  <Link href="/account" className="sm:col-start-1">
                     <Button
                       size="lg"
-                      className="min-h-12 w-full gap-2 px-8 text-base shadow-md sm:w-auto"
+                      className="min-h-12 w-full gap-2 px-6 text-base shadow-md sm:w-auto"
                       data-testid="button-get-started"
                     >
-                      Create your estate
+                      Start your family&apos;s list (free to set up)
                       <ArrowRight className="h-4 w-4" />
                     </Button>
                   </Link>
-                  <Link href="/demo">
+                  <p
+                    className="text-sm leading-relaxed text-muted-foreground sm:col-span-2 sm:row-start-2"
+                    data-testid="text-price-note"
+                  >
+                    No download. Everyone joins from a private link.{" "}
+                    <span className="font-medium text-foreground">$99 one-time</span> when you&apos;re ready to choose.
+                  </p>
+                  <Link href="/demo" className="sm:col-start-2 sm:row-start-1">
                     <Button
                       size="lg"
                       variant="outline"
@@ -111,12 +117,6 @@ export default function Home() {
                     </Button>
                   </Link>
                 </div>
-                <p className="mt-5 text-sm text-muted-foreground" data-testid="text-price-note">
-                  Free to set up and invite. <span className="font-medium text-foreground">$99 once</span> when you're ready to run the live draft and export.
-                </p>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  A family member? Check your messages for your private link.
-                </p>
               </div>
 
               <div className="relative mx-auto w-full max-w-md lg:max-w-none">
@@ -136,7 +136,7 @@ export default function Home() {
                   />
                   <figcaption className="border-t border-card-border px-6 py-4 text-center">
                     <p className="font-serif text-base italic leading-relaxed text-muted-foreground sm:text-lg">
-                      A recipe box. A watch. What they mean is not what they cost.
+                      Four siblings. One jewelry box. A fair turn for each piece.
                     </p>
                   </figcaption>
                 </figure>
@@ -145,7 +145,30 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="border-t border-border bg-card/40">
+        <section className="border-t border-border bg-card/40" aria-labelledby="who-its-for">
+          <div className="mx-auto max-w-6xl px-5 py-14 sm:px-8 sm:py-16">
+            <div className="mx-auto max-w-2xl text-center">
+              <h2
+                id="who-its-for"
+                className="font-serif text-3xl font-bold tracking-tight sm:text-4xl"
+              >
+                Who it&apos;s for
+              </h2>
+            </div>
+            <ul className="mx-auto mt-8 grid max-w-5xl gap-4 sm:grid-cols-3">
+              {audiences.map((item) => (
+                <li
+                  key={item}
+                  className="rounded-2xl border border-card-border bg-card px-6 py-6 text-center font-serif text-lg font-semibold leading-snug shadow-sm"
+                >
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
+        <section className="border-t border-border">
           <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20 lg:py-24">
             <div className="mx-auto max-w-2xl text-center">
               <p className="text-sm font-semibold uppercase tracking-[0.14em] text-primary">
@@ -155,18 +178,21 @@ export default function Home() {
                 className="mt-3 font-serif text-3xl font-bold tracking-tight sm:text-4xl"
                 data-testid="text-how-it-works"
               >
-                Four unhurried steps
+                Three unhurried steps
               </h2>
               <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
-                Private lists. A fair order. One item at a time. No one has to play judge.{" "}
-                <Link href="/how-it-works" className="text-foreground underline underline-offset-4">
+                Photograph what&apos;s there, rank in private, then choose one item at a time.{" "}
+                <Link
+                  href="/how-it-works"
+                  className="whitespace-nowrap text-foreground underline underline-offset-4"
+                >
                   Read the full walkthrough
                 </Link>
                 .
               </p>
             </div>
 
-            <ol className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            <ol className="mt-12 grid gap-5 md:grid-cols-3">
               {steps.map((step, i) => {
                 const Icon = step.icon;
                 return (
@@ -328,10 +354,10 @@ export default function Home() {
                 Simple pricing
               </p>
               <h2 className="mt-3 font-serif text-3xl font-bold tracking-tight sm:text-4xl">
-                One family. One estate. Ninety-nine dollars, once.
+                One family. One estate. $99, one-time.
               </h2>
               <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
-                Set up the catalog and invite everyone when you're ready. You only pay when it's time to run the live draft and take the results with you.
+                Set up the catalog and invite everyone for free. $99 one-time when you&apos;re ready to choose.
               </p>
             </div>
 
@@ -346,7 +372,7 @@ export default function Home() {
               <ul className="mx-auto mt-6 max-w-sm space-y-3 text-left text-base leading-relaxed text-muted-foreground">
                 <li>Photograph items and add spoken memories — free</li>
                 <li>Invite the family with private links — free</li>
-                <li>Pay when you run the live draft and export who kept what</li>
+                <li>$99 one-time when you&apos;re ready to choose, including the export of who kept what</li>
               </ul>
               <div className="mt-8">
                 <Link href="/account">
@@ -355,7 +381,7 @@ export default function Home() {
                     className="min-h-12 gap-2 px-8 text-base shadow-md"
                     data-testid="button-pricing-cta"
                   >
-                    Start for free
+                    Start your family&apos;s list
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>
@@ -367,11 +393,15 @@ export default function Home() {
         <section className="border-t border-border bg-card/40">
           <div className="mx-auto max-w-6xl px-5 py-16 sm:px-8 sm:py-20 lg:py-24">
             <div className="mx-auto max-w-2xl text-center">
-              <h2 className="font-serif text-3xl font-bold tracking-tight sm:text-4xl">
+              <p className="text-sm font-semibold uppercase tracking-[0.14em] text-primary">
                 Built to soften a hard moment
+              </p>
+              <h2 className="mt-3 font-serif text-3xl font-bold tracking-tight sm:text-4xl">
+                The hard part is not the stuff.
+                <span className="mt-1 block">It is coming apart over it.</span>
               </h2>
               <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
-                The hard part is not the stuff. It is families coming apart over it. Evenkeep is an impersonal, fair process so nobody has to be the judge. We cannot promise a family will stay close. The process does not have to be the fight.
+                Evenkeep keeps each list private and moves one item at a time, so nobody has to be the judge. We cannot promise a family will stay close.
               </p>
             </div>
 
@@ -397,10 +427,10 @@ export default function Home() {
 
             <div className="mx-auto mt-14 max-w-3xl overflow-hidden rounded-2xl border border-card-border bg-gradient-to-br from-primary/[0.08] to-accent/[0.06] p-8 text-center shadow-md sm:p-12">
               <h3 className="font-serif text-2xl font-bold tracking-tight sm:text-3xl">
-                The process does not have to be the fight.
+                Start when you are ready.
               </h3>
               <p className="mx-auto mt-3 max-w-xl text-lg leading-relaxed text-muted-foreground">
-                Start when you are ready. Add a first item today, invite the family whenever it feels right, and pay only when you run the draft.
+                Add a first item today, invite the family whenever it feels right, and pay only when you run the draft.
               </p>
               <div className="mt-7 flex justify-center">
                 <Link href="/account">
@@ -409,7 +439,7 @@ export default function Home() {
                     className="min-h-12 gap-2 px-8 text-base shadow-md"
                     data-testid="button-get-started-footer"
                   >
-                    Create your estate
+                    Start your family&apos;s list
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>
