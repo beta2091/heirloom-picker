@@ -25,6 +25,8 @@ export const sessionMiddleware = session({
   secret: process.env.SESSION_SECRET || "heirloom-dev-secret-change-me",
   resave: false,
   saveUninitialized: false,
+  // Honor X-Forwarded-Proto so the Secure cookie is actually set on Vercel.
+  proxy: true,
   cookie: {
     httpOnly: true,
     sameSite: "lax",
@@ -32,6 +34,16 @@ export const sessionMiddleware = session({
     maxAge: 1000 * 60 * 60 * 24 * 30, // 30 days
   },
 });
+
+export function saveSession(req: Request): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (!req.session) {
+      reject(new Error("Session is not available"));
+      return;
+    }
+    req.session.save((err) => (err ? reject(err) : resolve()));
+  });
+}
 
 // Derive the estate for a participant request that hasn't yet learned its
 // estate id (the first request from a share/PIN link). Only matches unambiguous

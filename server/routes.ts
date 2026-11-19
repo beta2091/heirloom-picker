@@ -9,7 +9,7 @@ import { insertSiblingSchema, insertItemSchema } from "@shared/schema";
 import { z } from "zod";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { currentEstateId } from "./tenant";
-import { requireOrganizer } from "./auth";
+import { requireOrganizer, saveSession } from "./auth";
 import { emailEnabled, sendEmail, buildInviteEmail, buildPasswordResetEmail } from "./email";
 import { rateLimit, rateLimitClear } from "./ratelimit";
 import {
@@ -24,6 +24,8 @@ import {
   updateOrganizerPassword,
   createPasswordReset,
   consumePasswordReset,
+  deleteEstate,
+  deleteOrganizer,
 } from "./accounts";
 
 function hashPin(pin: string): string {
@@ -102,10 +104,28 @@ export async function registerRoutes(
       if (limited) return res.status(429).json({ error: `Too many attempts. Try again in ${limited}s.` });
 
       const organizer = await createOrganizer(data.email, data.password, data.name);
-      const estate = await createEstate(organizer.id, data.estateName || data.name || "My Family");
-      req.session.organizerId = organizer.id;
-      req.session.estateId = estate.id;
-      res.json(await meResponse(organizer.id));
+      let estateId: string | null = null;
+      try {
+        const estate = await createEstate(organizer.id, data.estateName || data.name || "My Family");
+        estateId = estate.id;
+        if (!req.session) throw new Error("Session is not available");
+        req.session.organizerId = organizer.id;
+        req.session.estateId = estate.id;
+        // Persist the session before responding. If this fails, roll the new
+        // account back so a family is not left with an estate they cannot sign in to.
+        await saveSession(req);
+        res.json({
+          organizer: { id: organizer.id, email: organizer.email, name: organizer.name },
+          estate: { id: estate.id, name: estate.name, status: estate.status },
+        });
+      } catch (sessionError) {
+        console.error("[signup] session failed, rolling back", sessionError);
+        if (estateId) {
+          await deleteEstate(estateId).catch((err) => console.error("[signup] estate rollback failed", err));
+        }
+        await deleteOrganizer(organizer.id).catch((err) => console.error("[signup] organizer rollback failed", err));
+        return res.status(500).json({ error: "Could not start your session. Nothing was saved. Please try again." });
+      }
     } catch (error) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: error.errors[0]?.message || "Invalid request" });
@@ -126,8 +146,10 @@ export async function registerRoutes(
       }
       await rateLimitClear(`login:${ipOf(req)}`);
       const estates = await getEstatesByOwner(organizer.id);
+      if (!req.session) throw new Error("Session is not available");
       req.session.organizerId = organizer.id;
       req.session.estateId = estates[0]?.id;
+      await saveSession(req);
       res.json(await meResponse(organizer.id));
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -184,8 +206,10 @@ export async function registerRoutes(
       await updateOrganizerPassword(organizerId, data.password);
       // Log them straight in.
       const estates = await getEstatesByOwner(organizerId);
+      if (!req.session) throw new Error("Session is not available");
       req.session.organizerId = organizerId;
       req.session.estateId = estates[0]?.id;
+      await saveSession(req);
       res.json(await meResponse(organizerId));
     } catch (error) {
       if (error instanceof z.ZodError) {
