@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { setEstateId } from "@/lib/tenant";
+import { getEstateId, setEstateId } from "@/lib/tenant";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -62,6 +62,19 @@ export default function Account() {
       const res = await apiRequest("POST", path, body);
       const data = await res.json();
       if (data?.estate?.id) setEstateId(data.estate.id);
+      const headers: Record<string, string> = {};
+      const estateId = getEstateId();
+      if (estateId) headers["x-estate-id"] = estateId;
+      const meRes = await fetch("/api/auth/me", { credentials: "include", headers });
+      if (!meRes.ok) {
+        setError(
+          mode === "signup"
+            ? "Your account was saved, but we couldn't sign you in. Please sign in to continue."
+            : "We couldn't sign you in. Please try again.",
+        );
+        if (mode === "signup") setMode("login");
+        return;
+      }
       queryClient.invalidateQueries();
       setLocation("/admin");
     } catch (e: any) {

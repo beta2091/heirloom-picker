@@ -22,7 +22,7 @@ const helps = [
   {
     icon: Users,
     title: "Built for every relative",
-    body: "A texted link. Large type. No app store. The person who is ninety and the person who is twelve can both take a turn.",
+    body: "A private link. Large type. No app store. The person who is ninety and the person who is twelve can both take a turn.",
   },
 ];
 

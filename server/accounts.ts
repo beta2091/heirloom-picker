@@ -93,6 +93,14 @@ export async function updateEstate(id: string, updates: Partial<Estate>): Promis
   return result[0];
 }
 
+export async function deleteEstate(id: string): Promise<void> {
+  await db.delete(estates).where(eq(estates.id, id));
+}
+
+export async function deleteOrganizer(id: string): Promise<void> {
+  await db.delete(organizers).where(eq(organizers.id, id));
+}
+
 // ===== Unscoped estate resolvers (used by tenant middleware only) =====
 // These deliberately bypass the estate-scoped storage layer: they are how an
 // incoming participant request first discovers which estate it belongs to.

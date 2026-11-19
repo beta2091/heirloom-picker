@@ -9,6 +9,11 @@ import { sessionMiddleware, tenantMiddleware } from "./auth";
 const app = express();
 const httpServer = createServer(app);
 
+// Vercel terminates TLS at the edge. Without this, req.secure is false and
+// express-session refuses to send the Secure session cookie, so signup can
+// create an estate and still leave the browser signed out.
+app.set("trust proxy", 1);
+
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;

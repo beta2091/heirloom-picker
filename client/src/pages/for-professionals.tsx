@@ -43,7 +43,7 @@ const points = [
   },
   {
     title: "Private links for elderly relatives",
-    body: "Large type, a phone or a tablet, no app store. A son or daughter can text the link. The person in the recliner does not need a password.",
+    body: "Large type, a phone or a tablet, no app store. A son or daughter can share the private link. The person in the recliner does not need a password.",
   },
 ];
 
