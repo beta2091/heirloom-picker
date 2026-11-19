@@ -4,6 +4,9 @@ import { GUIDE_FAQS, type GuideFaq } from "./guides";
 
 export const SITE_ORIGIN = "https://evenkeep.app";
 
+/** One family-facing button label. Professionals keep "Refer a family." */
+export const PRIMARY_CTA_LABEL = "Start your family's list (free to set up)";
+
 export const DEFAULT_OG_IMAGE = "/marketing/hero-keepsakes.jpg";
 
 export const JSON_LD_SCRIPT_ID = "evenkeep-jsonld";
@@ -45,7 +48,7 @@ function organizationJsonLd() {
     name: "Evenkeep",
     url: `${SITE_ORIGIN}/`,
     description:
-      "Evenkeep is a private, fair process for families dividing belongings — so nobody has to be the judge. $99 one-time per estate.",
+      "Evenkeep is a fair, simple way for families to divide a parent's belongings. Private rankings, then turns in a random order. $99 one-time per estate.",
     logo: `${SITE_ORIGIN}/favicon.png`,
   };
 }
@@ -57,7 +60,7 @@ function websiteJsonLd() {
     name: "Evenkeep",
     url: `${SITE_ORIGIN}/`,
     description:
-      "A private, fair process for families dividing a loved one's belongings. Nobody has to be the judge.",
+      "A fair, simple way to divide a parent's belongings. Private rankings, then turns in a random order. For families settling an estate, or parents planning ahead.",
     publisher: { "@id": `${SITE_ORIGIN}/#organization` },
   };
 }
@@ -95,28 +98,28 @@ const homeJsonLd = {
 export const SEO = {
   home: {
     path: "/",
-    title: "Evenkeep — The hard part is not the stuff",
+    title: "Divide a parent's belongings fairly | Evenkeep",
     description:
-      "Dividing belongings can split a family. What something is worth in dollars is not what it is worth to the person. Evenkeep is a private, fair process: rank what you love, then take turns one item at a time. Nobody has to be the judge. $99 one-time per estate.",
-    ogTitle: "Evenkeep — The hard part is not the stuff",
+      "A fair, simple way for families settling an estate, or parents planning ahead, to divide a parent's belongings. Everyone ranks in private, then you take turns. Free to set up. $99 one-time when you're ready to choose.",
+    ogTitle: "Divide a parent's belongings fairly | Evenkeep",
     ogDescription:
-      "What it is worth in dollars is not what it is worth to the person. Private lists, a fair order, one item at a time. Free to set up; $99 once to run the draft.",
+      "A fair, simple way for families settling an estate, or parents planning ahead, to divide a parent's belongings. Everyone ranks in private, then you take turns. Free to set up. $99 one-time when you're ready to choose.",
     jsonLd: homeJsonLd,
   },
   howItWorks: {
     path: "/how-it-works",
     title: "How Evenkeep works — catalog, private ranking, and a fair draft",
     description:
-      "A calm walkthrough of how families photograph belongings, privately rank what they love, draw a fair turn order, and take turns one item at a time — so no one has to play judge. Free to set up; $99 once to run the draft.",
+      "A walkthrough of how families photograph belongings, privately rank what matters, draw a random turn order, and take turns one item at a time. Free to set up. $99 one-time when you're ready to choose.",
     ogTitle: "How Evenkeep works",
     ogDescription:
-      "Private lists. A fair order. One item at a time. No one has to play judge. The process does not have to be the fight.",
+      "Photograph what's there, rank in private, then take turns in a random order. Free to set up. $99 one-time when you're ready to choose.",
   },
   forFamilies: {
     path: "/for-families",
     title: "Divide a parent's belongings fairly, without anyone playing judge | Evenkeep",
     description:
-      "A private, unhurried way for siblings and executors to divide a parent's belongings fairly — so no one has to play judge. The process does not have to be the fight. Free to set up; $99 once to run the draft.",
+      "A private way for siblings and executors to divide a parent's belongings: everyone ranks what matters, then you take turns in a random order. Free to set up. $99 one-time when you're ready to choose.",
     ogTitle: "Divide a parent's belongings fairly, without anyone playing judge",
     ogDescription:
       "For the sibling or executor holding the house this week. Photograph what is left, let everyone rank what they love in private, and let a fair draft do the deciding.",
@@ -141,10 +144,10 @@ export const SEO = {
   },
   divideParentsBelongings: {
     path: "/guides/divide-parents-belongings-fairly",
-    title: "How to divide a parent's belongings fairly, without a fight | Evenkeep",
+    title: "How to divide a parent's belongings fairly | Evenkeep",
     description:
-      "A practical guide to dividing inherited household items between siblings — stickers, points, selling, and a private snake draft — without turning grief into a fight.",
-    ogTitle: "Divide a parent's belongings fairly, without a fight",
+      "A practical guide to dividing inherited household items between siblings — stickers, points, selling, and a private snake draft.",
+    ogTitle: "How to divide a parent's belongings fairly",
     ogDescription:
       "Methods families already try after a death, and when a private turn-based draft is the kinder way to share what is left.",
     ogType: "article",
@@ -152,10 +155,10 @@ export const SEO = {
     jsonLd: articleGuideJsonLd(
       {
         path: "/guides/divide-parents-belongings-fairly",
-        title: "How to divide a parent's belongings fairly, without a fight | Evenkeep",
+        title: "How to divide a parent's belongings fairly | Evenkeep",
         description:
-          "A practical guide to dividing inherited household items between siblings — stickers, points, selling, and a private snake draft — without turning grief into a fight.",
-        ogTitle: "Divide a parent's belongings fairly, without a fight",
+          "A practical guide to dividing inherited household items between siblings — stickers, points, selling, and a private snake draft.",
+        ogTitle: "How to divide a parent's belongings fairly",
         image: "/marketing/hero-keepsakes.jpg",
       },
       GUIDE_FAQS.divideParents,
@@ -227,7 +230,7 @@ export const SEO = {
     path: "/account",
     title: "Create your estate | Evenkeep",
     description:
-      "Set up a private Evenkeep estate for your family. Photograph belongings and invite relatives free. Pay $99 once when you run the live draft.",
+      "Set up a private Evenkeep list for your family. Free to set up. $99 one-time when you're ready to choose.",
   },
   login: {
     path: "/login",
@@ -260,6 +263,11 @@ export const PRERENDER_PAGES: SeoPage[] = [
   SEO.divideParentsBelongings,
   SEO.siblingsFighting,
   SEO.executorPersonalProperty,
+  SEO.privacy,
+  SEO.terms,
+  SEO.legal,
+  SEO.account,
+  SEO.login,
 ];
 
 function esc(value: string): string {

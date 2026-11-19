@@ -8,6 +8,7 @@ import {
   renderRobotsTxt,
   renderSitemapXml,
   SEO,
+  SITEMAP_PAGES,
   SITE_ORIGIN,
 } from "../shared/seo";
 
@@ -118,11 +119,43 @@ async function assertCrawlableFirstHtml(rootDir: string) {
   if (!guide.includes("<article>") || !guide.includes("<h1>")) {
     throw new Error("Divide-parents first HTML is missing <article> or <h1>");
   }
-  if (!guide.includes("Divide a parent's belongings fairly, without a fight")) {
+  if (!guide.includes("How to divide a parent's belongings fairly")) {
     throw new Error("Divide-parents first HTML is missing the article headline");
   }
   if (!guide.includes("Start with a catalog, not a conversation in the hallway")) {
     throw new Error("Divide-parents first HTML is missing article body");
+  }
+  if (!guide.includes("Start your family's list (free to set up)")) {
+    throw new Error("Guide first HTML is missing the primary CTA");
+  }
+  if (!guide.includes("$99 one-time when you're ready to choose.")) {
+    throw new Error("Guide first HTML is missing the price line");
+  }
+
+  const marketing = [
+    ["how-it-works/index.html", "Four unhurried steps, from the kitchen table to a finished list."],
+    ["for-families/index.html", "Divide a parent's belongings fairly, without anyone having to judge."],
+    ["for-professionals/index.html", "Point a family toward a fair draft. Stay in your own work."],
+    ["demo/index.html", "A fictional kitchen table, so you can see the draft."],
+  ] as const;
+  for (const [rel, heading] of marketing) {
+    const html = await readFile(path.join(rootDir, rel), "utf-8");
+    if (!html.includes(`<h1>${heading}</h1>`)) {
+      throw new Error(`${rel} first HTML is missing its H1`);
+    }
+    if (!html.includes("<ol>") || !html.includes('href="/account"')) {
+      throw new Error(`${rel} first HTML is missing steps or a CTA`);
+    }
+    if (!html.includes("$99 one-time")) {
+      throw new Error(`${rel} first HTML is missing the price`);
+    }
+  }
+
+  for (const rel of ["privacy/index.html", "terms/index.html", "legal/index.html", "account/index.html", "login/index.html"]) {
+    const html = await readFile(path.join(rootDir, rel), "utf-8");
+    if (!html.includes("<h1>") || html.includes(`rel="canonical" href="${SITE_ORIGIN}/"`)) {
+      throw new Error(`${rel} is still the homepage shell`);
+    }
   }
 }
 
@@ -234,7 +267,7 @@ async function buildAll() {
   await assertCrawlableFirstHtml(".");
 
   const sitemap = await readFile("dist/public/sitemap.xml", "utf-8");
-  for (const page of PRERENDER_PAGES) {
+  for (const page of SITEMAP_PAGES) {
     const loc = pageCanonical(page.path);
     if (!sitemap.includes(`<loc>${loc}</loc>`)) {
       throw new Error(`sitemap.xml missing ${loc}`);

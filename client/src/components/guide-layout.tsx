@@ -8,7 +8,7 @@ import { SeoHead } from "@/components/seo-head";
 import { LegalNote } from "@/components/legal-note";
 import type { GuideBlock, GuideRelated } from "@shared/guide-articles";
 import type { GuideFaq } from "@shared/guides";
-import type { SeoPage } from "@shared/seo";
+import { PRIMARY_CTA_LABEL, type SeoPage } from "@shared/seo";
 import { ArrowRight } from "lucide-react";
 
 export type { GuideRelated };
@@ -161,13 +161,25 @@ export function GuidePage({
         <section className="border-t border-border bg-card/40">
           <div className="mx-auto max-w-3xl px-5 py-16 text-center sm:px-8 sm:py-20">
             <h2 className="font-serif text-3xl font-bold tracking-tight">
-              When you want a hosted version of that draft
+              When you want this in one private place
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
-              Evenkeep is a private snake draft: photograph the items, let people rank in private, then take turns — one item each time — in a fair order. Free to set up and invite.{" "}
-              <span className="font-medium text-foreground">$99 once</span> to run the live draft and export.
+              Evenkeep keeps the photographs, the private rankings, and the turns together.
             </p>
-            <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
+            <div className="mt-8 flex flex-col items-stretch justify-center gap-3">
+              <Link href="/account">
+                <Button
+                  size="lg"
+                  className="h-auto min-h-12 w-full gap-2 whitespace-normal px-8 py-3 text-base shadow-md sm:w-auto"
+                  data-testid="button-guide-start"
+                >
+                  {PRIMARY_CTA_LABEL}
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+              <p className="text-base font-medium text-foreground">
+                $99 one-time when you&apos;re ready to choose.
+              </p>
               <Link href="/demo">
                 <Button
                   size="lg"
@@ -176,12 +188,6 @@ export function GuidePage({
                   data-testid="button-guide-sample"
                 >
                   See a sample
-                </Button>
-              </Link>
-              <Link href="/account">
-                <Button size="lg" className="min-h-12 w-full gap-2 px-8 text-base shadow-md sm:w-auto">
-                  Create your estate
-                  <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
             </div>

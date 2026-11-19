@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/sheet";
 import { Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PRIMARY_CTA_LABEL } from "@shared/seo";
 
 const NAV = [
   { href: "/how-it-works", label: "How it works", testId: "nav-how-it-works" },
@@ -93,7 +94,9 @@ export function MarketingHeader() {
                 </SheetClose>
                 <SheetClose asChild>
                   <Link href="/account" className="mt-2">
-                    <Button className="w-full text-base">Create your estate</Button>
+                    <Button className="h-auto min-h-10 w-full whitespace-normal py-2 text-center text-base leading-snug">
+                      {PRIMARY_CTA_LABEL}
+                    </Button>
                   </Link>
                 </SheetClose>
               </nav>
@@ -111,10 +114,10 @@ export function MarketingHeader() {
           </Link>
           <Link href="/account">
             <Button
-              className="hidden text-base shadow-sm sm:inline-flex"
+              className="hidden h-auto min-h-9 max-w-[11.5rem] whitespace-normal px-3 py-2 text-center text-sm leading-snug shadow-sm sm:inline-flex xl:max-w-none xl:px-4 xl:text-base"
               data-testid="link-create-estate"
             >
-              Create your estate
+              {PRIMARY_CTA_LABEL}
             </Button>
           </Link>
         </div>
