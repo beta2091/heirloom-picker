@@ -4,6 +4,9 @@ import { GUIDE_FAQS, type GuideFaq } from "./guides";
 
 export const SITE_ORIGIN = "https://evenkeep.app";
 
+/** One family-facing button label. Professionals keep "Refer a family." */
+export const PRIMARY_CTA_LABEL = "Start your family's list (free to set up)";
+
 export const DEFAULT_OG_IMAGE = "/marketing/hero-keepsakes.jpg";
 
 export const JSON_LD_SCRIPT_ID = "evenkeep-jsonld";
@@ -95,12 +98,12 @@ const homeJsonLd = {
 export const SEO = {
   home: {
     path: "/",
-    title: "Evenkeep — A fair, simple way to divide a parent's belongings.",
+    title: "Divide a parent's belongings fairly | Evenkeep",
     description:
-      "Everyone privately ranks what matters to them, then you take turns choosing in a random order. For families settling an estate, or parents planning ahead. Free to set up. $99 one-time when you're ready to choose.",
-    ogTitle: "Evenkeep — A fair, simple way to divide a parent's belongings.",
+      "A fair, simple way for families settling an estate, or parents planning ahead, to divide a parent's belongings. Everyone ranks in private, then you take turns. Free to set up. $99 one-time when you're ready to choose.",
+    ogTitle: "Divide a parent's belongings fairly | Evenkeep",
     ogDescription:
-      "No download. Everyone joins from a private link. Private rankings, then turns in a random order. $99 one-time when you're ready to choose.",
+      "A fair, simple way for families settling an estate, or parents planning ahead, to divide a parent's belongings. Everyone ranks in private, then you take turns. Free to set up. $99 one-time when you're ready to choose.",
     jsonLd: homeJsonLd,
   },
   howItWorks: {
@@ -227,7 +230,7 @@ export const SEO = {
     path: "/account",
     title: "Create your estate | Evenkeep",
     description:
-      "Set up a private Evenkeep estate for your family. Photograph belongings and invite relatives free. Pay $99 once when you run the live draft.",
+      "Set up a private Evenkeep list for your family. Free to set up. $99 one-time when you're ready to choose.",
   },
   login: {
     path: "/login",
@@ -260,6 +263,11 @@ export const PRERENDER_PAGES: SeoPage[] = [
   SEO.divideParentsBelongings,
   SEO.siblingsFighting,
   SEO.executorPersonalProperty,
+  SEO.privacy,
+  SEO.terms,
+  SEO.legal,
+  SEO.account,
+  SEO.login,
 ];
 
 function esc(value: string): string {

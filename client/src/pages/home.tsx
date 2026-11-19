@@ -5,7 +5,7 @@ import { MarketingPhoto } from "@/components/marketing-photo";
 import { SiteFooter } from "@/components/site-footer";
 import { SeoHead } from "@/components/seo-head";
 import { LegalNote } from "@/components/legal-note";
-import { SEO } from "@shared/seo";
+import { PRIMARY_CTA_LABEL, SEO } from "@shared/seo";
 import {
   Camera,
   Star,
@@ -92,10 +92,10 @@ export default function Home() {
                   <Link href="/account" className="sm:col-start-1">
                     <Button
                       size="lg"
-                      className="min-h-12 w-full gap-2 px-6 text-base shadow-md sm:w-auto"
+                      className="h-auto min-h-12 w-full gap-2 whitespace-nowrap px-6 text-base shadow-md sm:w-auto"
                       data-testid="button-get-started"
                     >
-                      Start your family&apos;s list (free to set up)
+                      {PRIMARY_CTA_LABEL}
                       <ArrowRight className="h-4 w-4" />
                     </Button>
                   </Link>
@@ -381,7 +381,7 @@ export default function Home() {
                     className="min-h-12 gap-2 px-8 text-base shadow-md"
                     data-testid="button-pricing-cta"
                   >
-                    Start your family&apos;s list
+                    {PRIMARY_CTA_LABEL}
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>
@@ -439,7 +439,7 @@ export default function Home() {
                     className="min-h-12 gap-2 px-8 text-base shadow-md"
                     data-testid="button-get-started-footer"
                   >
-                    Start your family&apos;s list
+                    {PRIMARY_CTA_LABEL}
                     <ArrowRight className="h-4 w-4" />
                   </Button>
                 </Link>

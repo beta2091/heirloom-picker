@@ -5,7 +5,7 @@ import { MarketingPhoto } from "@/components/marketing-photo";
 import { SiteFooter } from "@/components/site-footer";
 import { SeoHead } from "@/components/seo-head";
 import { LegalNote } from "@/components/legal-note";
-import { SEO } from "@shared/seo";
+import { PRIMARY_CTA_LABEL, SEO } from "@shared/seo";
 import {
   Camera,
   Star,
@@ -115,8 +115,8 @@ export default function HowItWorksPage() {
             </p>
             <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
               <Link href="/account">
-                <Button size="lg" className="min-h-12 w-full gap-2 px-8 text-base shadow-md sm:w-auto">
-                  Create your estate
+                <Button size="lg" className="h-auto min-h-12 w-full gap-2 whitespace-normal px-6 py-3 text-base shadow-md sm:w-auto">
+                  {PRIMARY_CTA_LABEL}
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
@@ -219,8 +219,8 @@ export default function HowItWorksPage() {
             </p>
             <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
               <Link href="/account">
-                <Button size="lg" className="min-h-12 w-full gap-2 px-8 text-base shadow-md sm:w-auto">
-                  Create your estate
+                <Button size="lg" className="h-auto min-h-12 w-full gap-2 whitespace-normal px-6 py-3 text-base shadow-md sm:w-auto">
+                  {PRIMARY_CTA_LABEL}
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>

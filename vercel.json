@@ -7,6 +7,11 @@
     { "source": "/for-families", "destination": "/for-families/index.html" },
     { "source": "/for-professionals", "destination": "/for-professionals/index.html" },
     { "source": "/demo", "destination": "/demo/index.html" },
+    { "source": "/privacy", "destination": "/privacy/index.html" },
+    { "source": "/terms", "destination": "/terms/index.html" },
+    { "source": "/legal", "destination": "/legal/index.html" },
+    { "source": "/account", "destination": "/account/index.html" },
+    { "source": "/login", "destination": "/login/index.html" },
     { "source": "/guides/:slug", "destination": "/guides/:slug/index.html" },
     { "source": "/guides/:slug/", "destination": "/guides/:slug/index.html" },
     { "source": "/:path*", "destination": "/index.html" }

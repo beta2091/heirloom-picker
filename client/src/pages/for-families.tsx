@@ -5,7 +5,7 @@ import { MarketingPhoto } from "@/components/marketing-photo";
 import { SiteFooter } from "@/components/site-footer";
 import { SeoHead } from "@/components/seo-head";
 import { LegalNote } from "@/components/legal-note";
-import { SEO } from "@shared/seo";
+import { PRIMARY_CTA_LABEL, SEO } from "@shared/seo";
 import { ArrowRight, Heart, Scale, ShieldCheck, Users } from "lucide-react";
 
 const helps = [
@@ -56,10 +56,10 @@ export default function ForFamiliesPage() {
                   <Link href="/account">
                     <Button
                       size="lg"
-                      className="min-h-12 w-full gap-2 px-8 text-base shadow-md sm:w-auto"
+                      className="h-auto min-h-12 w-full gap-2 whitespace-normal px-6 py-3 text-base shadow-md sm:w-auto"
                       data-testid="button-families-cta"
                     >
-                      Create your estate
+                      {PRIMARY_CTA_LABEL}
                       <ArrowRight className="h-4 w-4" />
                     </Button>
                   </Link>
@@ -70,7 +70,7 @@ export default function ForFamiliesPage() {
                   </Link>
                 </div>
                 <p className="mt-5 text-sm text-muted-foreground">
-                  Free to photograph and invite. <span className="font-medium text-foreground">$99 once</span> when you run the draft and take the list with you.
+                  No download. Everyone joins from a private link. <span className="font-medium text-foreground">$99 one-time</span> when you&apos;re ready to choose.
                 </p>
               </div>
 
@@ -168,8 +168,8 @@ export default function ForFamiliesPage() {
             </p>
             <div className="mt-8 flex justify-center">
               <Link href="/account">
-                <Button size="lg" className="min-h-12 gap-2 px-8 text-base shadow-md">
-                  Create your estate
+                <Button size="lg" className="h-auto min-h-12 gap-2 whitespace-normal px-6 py-3 text-base shadow-md">
+                  {PRIMARY_CTA_LABEL}
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>

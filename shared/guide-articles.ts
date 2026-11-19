@@ -445,6 +445,11 @@ export function renderGuideArticleHtml(article: GuideArticle): string {
     body,
     `<section><h2>Questions families actually ask</h2><dl>${faqs}</dl></section>`,
     `<nav aria-label="Related guides"><h2>Related guides</h2><ul>${related}</ul></nav>`,
+    "<section>",
+    "<h2>When you want this in one private place</h2>",
+    '<p><a href="/account">Start your family\'s list (free to set up)</a></p>',
+    "<p>$99 one-time when you're ready to choose.</p>",
+    "</section>",
     "</article>",
   ].join("");
 }
@@ -480,9 +485,92 @@ export function renderHomeCrawlableHtml(): string {
   ].join("");
 }
 
+/** Short first-HTML for marketing routes that otherwise ship an empty #root. */
+export function renderMarketingCrawlableHtml(path: string): string | undefined {
+  const cta =
+    '<p><a href="/account">Start your family\'s list (free to set up)</a></p><p>$99 one-time when you\'re ready to choose.</p>';
+  if (path === "/how-it-works") {
+    return [
+      "<main>",
+      "<h1>Four unhurried steps, from the kitchen table to a finished list.</h1>",
+      "<p>Everyone privately ranks what matters to them. Then you take turns choosing, one item at a time, in a random order.</p>",
+      "<ol>",
+      "<li>Catalog what is left. One person photographs each belonging and can add a note or a spoken memory.</li>",
+      "<li>Everyone ranks in private. Each person uses their own link. No one sees anyone else's list.</li>",
+      "<li>A fair order is drawn, and you take turns, one item at a time.</li>",
+      "<li>Results you can take with you: a written list of who kept what.</li>",
+      "</ol>",
+      cta,
+      "</main>",
+    ].join("");
+  }
+  if (path === "/for-families") {
+    return [
+      "<main>",
+      "<h1>Divide a parent's belongings fairly, without anyone having to judge.</h1>",
+      "<p>Photograph what is left, let everyone rank what they hope to keep in private, then take turns in a random order.</p>",
+      "<ol>",
+      "<li>Someone photographs the belongings.</li>",
+      "<li>Each relative ranks in private from their own link.</li>",
+      "<li>You take turns choosing, one item at a time.</li>",
+      "</ol>",
+      cta,
+      "</main>",
+    ].join("");
+  }
+  if (path === "/for-professionals") {
+    return [
+      "<main>",
+      "<h1>Point a family toward a fair draft. Stay in your own work.</h1>",
+      "<p>Estate attorneys, funeral homes, senior living, and hospice can send a family a private link. $99 one-time per family.</p>",
+      "<ol>",
+      "<li>The family opens a list, or you send them to Evenkeep to do it.</li>",
+      "<li>They invite relatives with private links. No app to install.</li>",
+      "<li>They pay $99 one-time when they're ready to choose, and can export who kept what.</li>",
+      "</ol>",
+      '<p><a href="/account">Refer a family</a></p>',
+      "<p>$99 one-time per family when they're ready to choose.</p>",
+      "</main>",
+    ].join("");
+  }
+  if (path === "/demo") {
+    return [
+      "<main>",
+      "<h1>A fictional kitchen table, so you can see the draft.</h1>",
+      "<p>A read-only sample. Nothing here is saved, and no account is required.</p>",
+      "<ol>",
+      "<li>Catalog</li>",
+      "<li>Private ranking</li>",
+      "<li>Fair draft</li>",
+      "<li>Results</li>",
+      "</ol>",
+      cta,
+      "</main>",
+    ].join("");
+  }
+  if (path === "/privacy") {
+    return "<main><h1>Privacy Policy</h1><p>How Evenkeep treats family photos, ratings, and organizer accounts. We do not sell family data or use memories for advertising.</p></main>";
+  }
+  if (path === "/terms") {
+    return "<main><h1>Terms of Use</h1><p>Evenkeep is a family coordination tool. Setup is free. $99 one-time per estate when you're ready to choose. Not a will and not legal advice.</p></main>";
+  }
+  if (path === "/legal") {
+    return "<main><h1>Not a will — not legal advice</h1><p>Evenkeep helps a family divide belongings. It is not a will, not legal advice, and not a substitute for an attorney.</p></main>";
+  }
+  if (path === "/account") {
+    return "<main><h1>Create your estate</h1><p>Set up a private list for your family. Free to set up. $99 one-time when you're ready to choose.</p></main>";
+  }
+  if (path === "/login") {
+    return "<main><h1>Sign in</h1><p>Sign in to manage your family's Evenkeep list.</p></main>";
+  }
+  return undefined;
+}
+
 /** Body HTML injected into #root so the first response is crawlable. */
 export function crawlableBodyForPath(path: string): string | undefined {
   if (path === "/") return renderHomeCrawlableHtml();
+  const marketing = renderMarketingCrawlableHtml(path);
+  if (marketing) return marketing;
   const article = guideArticleByPath(path);
   return article ? renderGuideArticleHtml(article) : undefined;
 }

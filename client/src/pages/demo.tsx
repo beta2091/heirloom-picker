@@ -6,7 +6,7 @@ import { MarketingPhoto } from "@/components/marketing-photo";
 import { SiteFooter } from "@/components/site-footer";
 import { SeoHead } from "@/components/seo-head";
 import { LegalNote } from "@/components/legal-note";
-import { SEO } from "@shared/seo";
+import { PRIMARY_CTA_LABEL, SEO } from "@shared/seo";
 import {
   DEMO_DRAFT_ORDER,
   DEMO_FLAG,
@@ -120,7 +120,7 @@ export default function DemoPage() {
                   className="min-h-12 w-full gap-2 px-8 text-base shadow-md sm:w-auto"
                   data-testid="demo-create-estate"
                 >
-                  Create your estate
+                  {PRIMARY_CTA_LABEL}
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
@@ -134,12 +134,12 @@ export default function DemoPage() {
               Ready to catalog your own?
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
-              Create an estate, add a first item, and invite the family when it feels right. Free until you run the live draft — then $99 once.
+              Add a first item and invite the family when it feels right. Free to set up. $99 one-time when you&apos;re ready to choose.
             </p>
             <div className="mt-8 flex justify-center">
               <Link href="/account">
                 <Button size="lg" className="min-h-12 gap-2 px-8 text-base shadow-md">
-                  Create your estate
+                  {PRIMARY_CTA_LABEL}
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </Link>
