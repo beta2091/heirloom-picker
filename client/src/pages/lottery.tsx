@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, getQueryFn } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -331,10 +331,20 @@ export default function LotteryPage() {
   const [revealedPositions, setRevealedPositions] = useState<number>(0);
   const revealTimerRef = useRef<NodeJS.Timeout | null>(null);
   const verifiedAdminPinRef = useRef<string>("");
+  const [storedAdminPin, setStoredAdminPin] = useState(() =>
+    typeof window === "undefined" ? "" : sessionStorage.getItem("admin-pin") || ""
+  );
+  const [memberPin, setMemberPin] = useState("");
+  const [lockDenied, setLockDenied] = useState(false);
 
   const { data: adminStatus } = useQuery<AdminStatus>({
     queryKey: ["/api/admin/status"],
   });
+  const { data: authMe, isLoading: authLoading } = useQuery<{ organizer?: { id: string } } | null>({
+    queryKey: ["/api/auth/me"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+  });
+  const isOrganizer = !!authMe?.organizer;
   const { data: familySettings } = useQuery<FamilySettings>({
     queryKey: ["/api/family-settings"],
   });
@@ -349,20 +359,47 @@ export default function LotteryPage() {
     }
   }, [adminStatus]);
 
+  useEffect(() => {
+    if (isOrganizer) setAdminVerified(true);
+  }, [isOrganizer]);
+
+  useEffect(() => {
+    if (!activeSiblingId) return;
+    setMemberPin("");
+    setLockDenied(false);
+  }, [activeSiblingId]);
+
   const allLocked = participants.length > 0 && participants.every(p => p.lotteryNumber !== null);
 
   const lockNumberMutation = useMutation({
-    mutationFn: async ({ siblingId, number }: { siblingId: string; number: number }) => {
-      return apiRequest("POST", `/api/lottery/${siblingId}/lock-number`, { number, pin: null });
+    mutationFn: async ({ siblingId, number, pin }: { siblingId: string; number: number; pin?: string }) => {
+      const adminPin = verifiedAdminPinRef.current || storedAdminPin || pin || "";
+      const shareToken = sessionStorage.getItem(`share-token-${siblingId}`) || undefined;
+      return apiRequest("POST", `/api/lottery/${siblingId}/lock-number`, {
+        number,
+        ...(pin ? { pin } : {}),
+        ...(shareToken ? { shareToken } : {}),
+        ...(adminPin ? { adminPin } : {}),
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/lottery"] });
       setActiveSiblingId(null);
       setSelectedNumber(null);
+      setMemberPin("");
+      setLockDenied(false);
       toast({ title: "Number locked in!" });
     },
     onError: (error: any) => {
-      toast({ title: "Could not lock number", description: error.message, variant: "destructive" });
+      const message = String(error?.message || "");
+      if (message.includes("401") || message.includes("PIN")) setLockDenied(true);
+      toast({
+        title: "Could not lock number",
+        description: message.includes("401")
+          ? "Enter the admin PIN, or this person's PIN, and try again."
+          : message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -376,6 +413,8 @@ export default function LotteryPage() {
       const data = await response.json();
       if (data.verified) {
         verifiedAdminPinRef.current = adminPinInput;
+        sessionStorage.setItem("admin-pin", adminPinInput);
+        setStoredAdminPin(adminPinInput);
         setAdminVerified(true);
         setAdminPinInput("");
       } else {
@@ -467,6 +506,11 @@ export default function LotteryPage() {
       if (revealTimerRef.current) clearInterval(revealTimerRef.current);
     };
   }, []);
+
+  const activeShareToken = activeSiblingId
+    ? (typeof window === "undefined" ? null : sessionStorage.getItem(`share-token-${activeSiblingId}`))
+    : null;
+  const showLockPin = lockDenied || (!authLoading && !isOrganizer && !storedAdminPin && !activeShareToken);
 
   const takenNumbers = new Set(
     participants.map(p => p.lotteryNumber).filter((n): n is number => n !== null)
@@ -731,10 +775,33 @@ export default function LotteryPage() {
                   })}
                 </div>
                 {selectedNumber && (
-                  <div className="text-center mt-6">
+                  <div className="text-center mt-6 space-y-4">
+                    {showLockPin && (
+                      <div className="mx-auto max-w-xs space-y-2 text-left">
+                        <label htmlFor="lottery-lock-pin" className="block text-sm text-muted-foreground">
+                          Admin PIN or this person's PIN
+                        </label>
+                        <input
+                          id="lottery-lock-pin"
+                          type="password"
+                          inputMode="numeric"
+                          autoComplete="off"
+                          value={memberPin}
+                          onChange={(e) => setMemberPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                          placeholder="4-digit PIN"
+                          maxLength={4}
+                          className="w-full rounded-lg border border-input bg-card px-4 py-3 text-center text-2xl tracking-widest text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-ring"
+                          data-testid="input-lock-pin"
+                        />
+                      </div>
+                    )}
                     <Button
-                      onClick={() => lockNumberMutation.mutate({ siblingId: activeSiblingId, number: selectedNumber })}
-                      disabled={lockNumberMutation.isPending}
+                      onClick={() => lockNumberMutation.mutate({
+                        siblingId: activeSiblingId,
+                        number: selectedNumber,
+                        pin: memberPin || undefined,
+                      })}
+                      disabled={lockNumberMutation.isPending || (showLockPin && memberPin.length !== 4)}
                       size="lg"
                       className="min-h-12 gap-2 px-8 text-base shadow-md"
                       data-testid="button-lock-number"

@@ -366,7 +366,7 @@ export const GUIDE_ARTICLES = {
       ),
       h2("Elderly beneficiaries and people who are not in town"),
       p(
-        "Do not design a process that only works for the fit adult standing in the house. A texted link, large type, and time to sit with a catalog are more respectful than a Saturday open house. The person in the recliner and the person on another coast should have the same kind of turn, even if they take it later in the day.",
+        "Do not design a process that only works for the fit adult standing in the house. A private link, large type, and time to sit with a catalog are more respectful than a Saturday open house. The person in the recliner and the person on another coast should have the same kind of turn, even if they take it later in the day.",
       ),
       p(
         "If someone cannot participate, appointing a helper is better than guessing. Record that you offered a way in.",

@@ -1,7 +1,10 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { createHash, randomBytes, createHmac, timingSafeEqual } from "crypto";
+import { createHash, randomBytes } from "crypto";
 import { storage } from "./storage";
+import { isTransientDbError } from "./db";
+import { shuffleSecure } from "./shuffle";
+import { paidCheckoutFromEvent, verifyStripeWebhook } from "./stripe-webhook";
 import { insertSiblingSchema, insertItemSchema } from "@shared/schema";
 import { z } from "zod";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
@@ -197,12 +200,32 @@ export async function registerRoutes(
   const stripeEnabled = () => !!process.env.STRIPE_SECRET_KEY;
 
   app.get("/api/billing/status", async (req, res) => {
-    const estate = await getEstateById(currentEstateId());
-    res.json({
-      status: estate?.status ?? "trial",
-      active: estate?.status === "active",
-      billingEnabled: stripeEnabled(),
-    });
+    const load = async () => {
+      const estate = await getEstateById(currentEstateId());
+      return {
+        status: estate?.status ?? "trial",
+        active: estate?.status === "active",
+        billingEnabled: stripeEnabled(),
+      };
+    };
+    try {
+      res.json(await load());
+    } catch (error) {
+      // The first query after the database has been asleep often fails on a
+      // stale pooled socket. The pool drops that client; one retry uses a new
+      // connection. Anything else is a real failure.
+      if (!isTransientDbError(error)) {
+        console.error("[billing] status error", error);
+        return res.status(500).json({ error: "Failed to get billing status" });
+      }
+      console.warn("[billing] status hit a stale database connection, retrying once");
+      try {
+        res.json(await load());
+      } catch (retryError) {
+        console.error("[billing] status error", retryError);
+        res.status(500).json({ error: "Failed to get billing status" });
+      }
+    }
   });
 
   app.post("/api/billing/checkout", requireOrganizer, async (req, res) => {
@@ -253,28 +276,47 @@ export async function registerRoutes(
     }
   });
 
-  // Stripe webhook — verifies the signature against the raw body, then
-  // activates the estate once payment completes.
+  // Stripe webhook. A configured secret means every request must carry a valid
+  // signature — a missing signature is a rejection, not a skip. Production
+  // without a secret fails closed. An estate is marked paid only when the
+  // signed event is a payment-mode Checkout Session with payment_status
+  // "paid" whose client_reference_id is an estate we actually have.
   app.post("/api/billing/webhook", async (req, res) => {
     try {
-      const secret = process.env.STRIPE_WEBHOOK_SECRET;
-      const sig = req.headers["stripe-signature"] as string | undefined;
+      const sigHeader = req.headers["stripe-signature"];
+      const signatureHeader = Array.isArray(sigHeader) ? sigHeader[0] : sigHeader;
       const raw = (req as any).rawBody as Buffer | undefined;
-      if (secret && sig && raw) {
-        const parts = Object.fromEntries(sig.split(",").map((kv) => kv.split("=")));
-        const signedPayload = `${parts.t}.${raw.toString("utf8")}`;
-        const expected = createHmac("sha256", secret).update(signedPayload).digest("hex");
-        const a = Buffer.from(expected);
-        const b = Buffer.from(parts.v1 || "");
-        if (a.length !== b.length || !timingSafeEqual(a, b)) {
-          return res.status(400).json({ error: "Invalid signature" });
-        }
+      const verdict = verifyStripeWebhook({
+        secret: process.env.STRIPE_WEBHOOK_SECRET,
+        signatureHeader,
+        rawBody: raw,
+        isProduction: process.env.NODE_ENV === "production",
+      });
+      if (!verdict.ok) {
+        return res.status(verdict.status).json({ error: verdict.error });
       }
-      const event = JSON.parse(((req as any).rawBody as Buffer | undefined)?.toString("utf8") || "{}");
-      if (event.type === "checkout.session.completed") {
-        const estateId = event.data?.object?.client_reference_id;
-        if (estateId) {
-          await updateEstate(estateId, { status: "active", activatedAt: new Date() });
+
+      let event: unknown;
+      try {
+        event = JSON.parse(raw!.toString("utf8"));
+      } catch {
+        return res.status(400).json({ error: "Invalid payload" });
+      }
+
+      const paid = paidCheckoutFromEvent(event);
+      if (paid) {
+        const estate = await getEstateById(paid.estateId);
+        if (!estate || estate.id !== paid.estateId) {
+          console.warn(`[stripe] paid session ${paid.sessionId ?? "?"} did not match an estate (${paid.estateId})`);
+        } else if (estate.status === "active") {
+          console.log(`[stripe] estate ${estate.id} already active (session ${paid.sessionId ?? "?"})`);
+        } else {
+          await updateEstate(estate.id, {
+            status: "active",
+            activatedAt: new Date(),
+            ...(paid.sessionId ? { stripeCheckoutId: paid.sessionId } : {}),
+          });
+          console.log(`[stripe] activated estate ${estate.id} from session ${paid.sessionId ?? "?"}`);
         }
       }
       res.json({ received: true });
@@ -1442,7 +1484,13 @@ export async function registerRoutes(
       if (!number || number < 1 || number > 50) {
         return res.status(400).json({ error: "Number must be between 1 and 50" });
       }
-      if (!(await verifyWishlistAccess(req.params.siblingId, pin, shareToken))) {
+      // The lottery page is a shared screen. The organizer (session) or admin
+      // PIN can lock a number for anyone in the room. A relative can lock only
+      // their own number, with their PIN or private-link token. Wishlist
+      // access alone used to be the only check, and the page sent no PIN, so
+      // every lock-in failed.
+      const memberOk = await verifyWishlistAccess(req.params.siblingId, pin, shareToken);
+      if (!memberOk && !(await verifyAdminPin(req))) {
         return res.status(401).json({ error: "PIN required", requiresPin: true });
       }
       const allSiblings = await storage.getAllSiblings();
@@ -1451,7 +1499,7 @@ export async function registerRoutes(
         return res.status(400).json({ error: `Number ${number} is already taken by ${taken.name}` });
       }
       const updated = await storage.updateSibling(req.params.siblingId, { lotteryNumber: number });
-      res.json(updated);
+      res.json(updated ? sanitizeSibling(updated) : updated);
     } catch (error) {
       res.status(500).json({ error: "Failed to lock lottery number" });
     }
@@ -1459,9 +1507,10 @@ export async function registerRoutes(
 
   app.post("/api/lottery/spin", async (req, res) => {
     try {
-      const { adminPin } = req.body;
       const settings = await storage.getAppSettings();
-      if (settings?.adminPin && (!adminPin || settings.adminPin !== hashPin(adminPin))) {
+      // Same rule as other admin actions: a logged-in organizer counts, and so
+      // does the legacy admin PIN. No PIN configured still means the draw is open.
+      if (settings?.adminPin && !(await verifyAdminPin(req))) {
         return res.status(401).json({ error: "Admin PIN required to spin the lottery" });
       }
       const allSiblings = await storage.getAllSiblings();
@@ -1640,14 +1689,14 @@ export async function registerRoutes(
 
       if (withOrder.length === 0) {
         // Full shuffle — no lottery has run
-        const shuffled = [...withoutOrder].sort(() => Math.random() - 0.5);
+        const shuffled = shuffleSecure(withoutOrder);
         for (let i = 0; i < shuffled.length; i++) {
           await storage.updateSibling(shuffled[i].id, { draftOrder: i + 1 });
         }
       } else if (withoutOrder.length > 0) {
         // Append new siblings to end, keeping existing lottery order intact
         const maxOrder = Math.max(...withOrder.map(s => s.draftOrder || 0));
-        const shuffled = [...withoutOrder].sort(() => Math.random() - 0.5);
+        const shuffled = shuffleSecure(withoutOrder);
         for (let i = 0; i < shuffled.length; i++) {
           await storage.updateSibling(shuffled[i].id, { draftOrder: maxOrder + i + 1 });
         }
@@ -2095,6 +2144,7 @@ export async function registerRoutes(
         return res.status(403).json({ error: "Unauthorized" });
       }
 
+      const estate = await getEstateById(currentEstateId());
       const settings = await storage.getAppSettings();
       const allSiblings = await storage.getAllSiblings();
       const allItems = await storage.getAllItems();
@@ -2102,6 +2152,11 @@ export async function registerRoutes(
       const pickedItems = allItems.filter((i) => i.pickedBySiblingId);
 
       res.json({
+        estate: {
+          id: estate?.id ?? currentEstateId(),
+          name: estate?.name ?? null,
+          status: estate?.status ?? null,
+        },
         admin: {
           hasPin: !!settings?.adminPin,
           name: settings?.adminName || null,
@@ -2145,6 +2200,50 @@ export async function registerRoutes(
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: "Failed to reset admin" });
+    }
+  });
+
+  // Comp one estate: mark it paid/activated without Stripe. Same owner
+  // password as the other /api/owner routes. Idempotent — an estate that is
+  // already active stays active and keeps its original activatedAt.
+  app.post("/api/owner/comp", async (req, res) => {
+    try {
+      const { password, estateId } = ownerPasswordSchema.extend({
+        estateId: z.string().trim().min(1),
+      }).parse(req.body);
+      const ownerPassword = process.env.OWNER_PASSWORD;
+      if (!ownerPassword || password !== ownerPassword) {
+        return res.status(403).json({ error: "Unauthorized" });
+      }
+
+      const estate = await getEstateById(estateId);
+      if (!estate) {
+        return res.status(404).json({ error: "Estate not found" });
+      }
+
+      const summary = { id: estate.id, name: estate.name, status: estate.status };
+      if (estate.status === "active") {
+        console.log(`[owner] comp estate=${estate.id} already active ip=${ipOf(req)}`);
+        return res.json({ success: true, alreadyActive: true, estate: summary });
+      }
+
+      const updated = await updateEstate(estate.id, { status: "active", activatedAt: new Date() });
+      console.log(`[owner] comped estate=${estate.id} name=${JSON.stringify(estate.name)} from=${estate.status} to=active ip=${ipOf(req)}`);
+      res.json({
+        success: true,
+        alreadyActive: false,
+        estate: {
+          id: updated?.id ?? estate.id,
+          name: updated?.name ?? estate.name,
+          status: updated?.status ?? "active",
+        },
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Estate id is required" });
+      }
+      console.error("[owner] comp failed", error);
+      res.status(500).json({ error: "Failed to comp estate" });
     }
   });
 

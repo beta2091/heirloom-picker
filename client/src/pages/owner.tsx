@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Logo } from "@/components/logo";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Shield, Users, Package, Gavel, AlertTriangle, Lock, User, RefreshCw } from "lucide-react";
+import { Shield, Users, Package, Gavel, AlertTriangle, Lock, User, RefreshCw, BadgeCheck } from "lucide-react";
 
 function OwnerPasswordGate({ children }: { children: (password: string) => React.ReactNode }) {
   const [password, setPassword] = useState("");
@@ -102,6 +102,7 @@ function OwnerPasswordGate({ children }: { children: (password: string) => React
 }
 
 interface OwnerStatus {
+  estate?: { id: string; name: string | null; status: string | null };
   admin: { hasPin: boolean; name: string | null };
   siblings: Array<{ id: string; name: string; color: string | null; hasPin: boolean }>;
   items: { total: number; picked: number; unpicked: number };
@@ -141,6 +142,38 @@ function OwnerDashboard({ password }: { password: string }) {
   });
 
   const [confirmReset, setConfirmReset] = useState(false);
+  const [compEstateId, setCompEstateId] = useState("");
+  const [compTouched, setCompTouched] = useState(false);
+
+  useEffect(() => {
+    if (!compTouched && status?.estate?.id) setCompEstateId(status.estate.id);
+  }, [status, compTouched]);
+
+  const compMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("POST", "/api/owner/comp", {
+        password,
+        estateId: compEstateId.trim(),
+      });
+      return res.json() as Promise<{ alreadyActive: boolean; estate: { id: string; name: string; status: string } }>;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/owner/status"] });
+      toast({
+        title: data.alreadyActive ? "Already paid" : "Estate marked paid",
+        description: data.alreadyActive
+          ? `${data.estate.name} was already active.`
+          : `${data.estate.name} is now active. No Stripe charge was made.`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Could not comp this estate",
+        description: String(error?.message || "").replace(/^\d+:\s*/, ""),
+        variant: "destructive",
+      });
+    },
+  });
 
   const draftStatusText = status?.draft.isComplete
     ? "Complete"
@@ -221,6 +254,47 @@ function OwnerDashboard({ password }: { password: string }) {
                   </Button>
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-2xl border-card-border shadow-sm">
+            <CardHeader className="flex flex-row items-center gap-3 pb-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <BadgeCheck className="h-5 w-5" />
+              </span>
+              <CardTitle className="font-serif text-lg font-semibold">Comp an estate</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="mb-4 text-base leading-relaxed text-muted-foreground">
+                Marks one estate paid and activated without Stripe. Use this for a family you are comping, or for a demo estate. Doing it again on an estate that is already active leaves it as it is.
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="comp-estate-id">Estate id</Label>
+                <Input
+                  id="comp-estate-id"
+                  value={compEstateId}
+                  onChange={(e) => {
+                    setCompTouched(true);
+                    setCompEstateId(e.target.value);
+                  }}
+                  placeholder="Estate id"
+                  className="min-h-12 font-mono text-sm"
+                  data-testid="input-owner-comp-estate"
+                />
+              </div>
+              {status?.estate?.id && compEstateId.trim() === status.estate.id && (
+                <p className="mt-2 text-sm text-muted-foreground" data-testid="text-owner-estate-status">
+                  Current estate{status.estate.name ? ` (${status.estate.name})` : ""} is {status.estate.status || "unknown"}.
+                </p>
+              )}
+              <Button
+                className="mt-4 min-h-12"
+                onClick={() => compMutation.mutate()}
+                disabled={!compEstateId.trim() || compMutation.isPending}
+                data-testid="button-owner-comp"
+              >
+                {compMutation.isPending ? "Saving..." : "Mark estate paid"}
+              </Button>
             </CardContent>
           </Card>
 

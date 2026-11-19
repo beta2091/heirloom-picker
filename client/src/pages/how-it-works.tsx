@@ -200,7 +200,7 @@ export default function HowItWorksPage() {
               Private by design. Simple on purpose.
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
-              Ratings stay with the person who made them until the draft. Elderly relatives get a large, gentle screen from a texted link — not a store app and not a login to remember.
+              Ratings stay with the person who made them until the draft. Elderly relatives get a large, gentle screen from a private link — not a store app and not a login to remember.
             </p>
             <p className="mt-4 text-lg leading-relaxed text-muted-foreground">
               Families also ask about stickers, points-bidding, and selling the house contents. Those methods have a place. A private turn-based draft is the kinder option when the list is mostly keepsakes. The longer guides —{" "}
